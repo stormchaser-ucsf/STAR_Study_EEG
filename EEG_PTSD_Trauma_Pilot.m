@@ -138,7 +138,8 @@ close all
 
 % adding paths
 addpath(genpath('C:\Users\nikic\Documents\MATLAB\Ana EEG\hdEEG_Trauma_PTSD\SAGA_Matlab\SAGA_interface'))
-root_path = 'F:\DATA\EEG Data Anne Richards\STAR\STAR_Pilot_data-selected\Pilot18';
+%root_path = 'F:\DATA\EEG Data Anne Richards\STAR\STAR_Pilot_data-selected\Pilot18';
+root_path = 'F:\DATA\EEG Data Anne Richards\STAR\STAR_Pilot_data-selected\Marker_Snippet_Testing_12_11_24';
 cd(root_path)
 addpath('C:\Users\nikic\Documents\MATLAB\eeglab2023.1')
 
