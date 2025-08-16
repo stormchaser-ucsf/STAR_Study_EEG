@@ -88,7 +88,7 @@ disp('Filter design and sleep staging loading done')
 
 %% BASIC PRE PROCESSING
 
-% band pass filter the data 
+% band pass filter the data
 d1 = designfilt('bandpassiir','FilterOrder',4, ...
     'HalfPowerFrequency1',0.1,'HalfPowerFrequency2',30, ...
     'SampleRate',Fs);
@@ -126,84 +126,87 @@ opt.prec=32;
 data=Y;
 clear Y H Hh
 
-% remove the EOG channels 
+% remove the EOG channels
 neural_ch = [1:64];
 data = data(neural_ch,:);
 
 disp('Eye blink and artifact correction done')
 
 %% GET PREFERRED SPINDLE FREQUENCY PER CHANNEL
-% 
-% % get center frequency of spindle per channel using fft
-% topo_spindle_freq=[];
-% parfor ch=1:64    
-%     disp(['Processing Channel ' num2str(ch)]);
-%     win_length=2048;
-%     chdata = data(ch,:);
-%     seg = 1:win_length:length(chdata);
-%     ch_spindle_freq=NaN(1,length(seg));
-%     for i=1:length(seg)
-%         %disp(i/length(seg)*100)
-%         if i==length(seg)
-%             tmp = chdata(seg(i):end);
-%             sleep_seg = sleep_staging(seg(i):end);
-%         else
-%             tmp = chdata(seg(i):seg(i+1)-1);
-%             sleep_seg = sleep_staging(seg(i):seg(i+1)-1);
-%         end
-%         %[psdx,ffreq,phasex]=fft_compute(tmp,Fs,1);
-%         [Pxx,F]=pwelch(tmp,1024,256,1024,Fs);
-% 
-%         % remove the 1/f component and see which is freq with largest power
-%         idx = logical((F>0) .* (F<=25));
-%         F1=F(idx);
-%         F1=log2(F1);
-%         power_spect = Pxx(idx);
-%         power_spect = log2(power_spect);
-%         %[bhat p wh se ci t_stat]=robust_fit(F1,power_spect,1);
-%         warning('off','all');  % Turns off all warnings
-%         %opts = statset('MaxIter',1000);  % set max iterations to 1000
-%         tb=fitlm(F1,power_spect,'RobustOpts','on');
-%         warning('on','all');  % Turns off all warnings
-%         bhat = tb.Coefficients.Estimate;
-%         x = [ones(length(F1),1) F1];
-%         yhat = x*bhat;
-% 
-%         %plot
-%         % figure;
-%         % plot(F1,power_spect,'LineWidth',1);
-%         % hold on
-%         % plot(F1,yhat,'LineWidth',1);
-% 
-%         % remove the 1/f from the power spectrum
-%         power_spect = zscore(power_spect - yhat);
-% 
-%         % find which frequency has the most power
-%         ff = 2.^F1;
-%         idx = logical((ff>=7.9) .* (ff<=16.1));
-%         ff = ff(idx);
-%         power_spindle = power_spect(idx);
-%         [aa bb]=max(power_spindle);
-%         pref_freq = ff(bb);
-% 
-%         % store if in N2 sleep
-%         if sum(sleep_seg==2) > 0
-%             ch_spindle_freq(i) = pref_freq;
-%         end
-% 
-%     end
-% 
-%     % figure;hist(ch_spindle_freq)
-%     % figure;ksdensity(ch_spindle_freq)
-%     % nanmean(ch_spindle_freq)
-% 
-%     topo_spindle_freq(ch) = nanmedian(ch_spindle_freq);
-% 
-% end
-% 
-% figure;plot(topo_spindle_freq)
 
-%% PERFORM SPINDLE AND SO ANALYSES 
+% get center frequency of spindle per channel using fft
+topo_spindle_freq=[];
+win_length=2048;
+parfor ch=1:64
+    disp(['Processing Channel ' num2str(ch)]);
+    chdata = data(ch,:);
+    seg = 1:win_length:length(chdata);
+    ch_spindle_freq=NaN(1,length(seg));
+    for i=1:length(seg)
+        %disp(i/length(seg)*100)
+        if i==length(seg)
+            tmp = chdata(seg(i):end);
+            sleep_seg = sleep_staging(seg(i):end);
+        else
+            tmp = chdata(seg(i):seg(i+1)-1);
+            sleep_seg = sleep_staging(seg(i):seg(i+1)-1);
+        end
+        %[psdx,ffreq,phasex]=fft_compute(tmp,Fs,1);
+        if length(tmp) >= 1024
+            [Pxx,F]=pwelch(tmp,1024,256,1024,Fs);
+
+
+            % remove the 1/f component and see which is freq with largest power
+            idx = logical((F>0) .* (F<=25));
+            F1=F(idx);
+            F1=log2(F1);
+            power_spect = Pxx(idx);
+            power_spect = log2(power_spect);
+            %[bhat p wh se ci t_stat]=robust_fit(F1,power_spect,1);
+            warning('off','all');  % Turns off all warnings
+            %opts = statset('MaxIter',1000);  % set max iterations to 1000
+            tb=fitlm(F1,power_spect,'RobustOpts','on');
+            warning('on','all');  % Turns off all warnings
+            bhat = tb.Coefficients.Estimate;
+            x = [ones(length(F1),1) F1];
+            yhat = x*bhat;
+
+            %plot
+            % figure;
+            % plot(F1,power_spect,'LineWidth',1);
+            % hold on
+            % plot(F1,yhat,'LineWidth',1);
+
+            % remove the 1/f from the power spectrum
+            power_spect = zscore(power_spect - yhat);
+
+            % find which frequency has the most power
+            ff = 2.^F1;
+            idx = logical((ff>=7.9) .* (ff<=16.1));
+            ff = ff(idx);
+            power_spindle = power_spect(idx);
+            [aa bb]=max(power_spindle);
+            pref_freq = ff(bb);
+
+            % store if in N2 sleep
+            if sum(sleep_seg==2) > 0
+                ch_spindle_freq(i) = pref_freq;
+            end
+        end
+
+    end
+
+    % figure;hist(ch_spindle_freq)
+    % figure;ksdensity(ch_spindle_freq)
+    % nanmean(ch_spindle_freq)
+
+    topo_spindle_freq(ch) = nanmedian(ch_spindle_freq);
+
+end
+
+figure;plot(topo_spindle_freq)
+
+%% PERFORM SPINDLE AND SO ANALYSES
 
 
 slow_spindle_ch = [1:12 33:43 59 60];
@@ -259,17 +262,17 @@ for subj=1:length(exp_files)
     EEG = pop_biosig(filename,'importevent','off');
     eeglab redraw
     data= double(EEG.data);
-    
+
     % filter the data
     data = filtfilt(lpFilt,data')';
-    
+
     % reference to mastoids (maybe)
     ref = nanmean(data(7:8,:));
     data = data-ref;
-    
+
     % get good times
     I = data_good_times_exp{subj}';
-    
+
     % get the appropriate staging file
     suc=[];
     for k=1:length(staging_files)
@@ -278,18 +281,18 @@ for subj=1:length(exp_files)
             break
         end
     end
-    
-    
+
+
     % get sleep staging data
     if ~isempty(suc)
-        
-        
+
+
         disp('processing data')
-        
+
         % restrict only to N2 sleep stages
         scores = importfile1(staging_files{subj},...
             'Data', [3, 233]);
-        
+
         % extract the time and day etc.
         time=[];sleep_score=[];
         for ii=1:size(scores,1)
@@ -299,8 +302,8 @@ for subj=1:length(exp_files)
             sleep_score(ii) = scores.VarName2(ii);
         end
         time=time-time(1);
-        
-        
+
+
         % get the closest match between the scored data and the EEG data
         sleep_staging = [];
         for ii=1:length(time)
@@ -311,36 +314,36 @@ for subj=1:length(exp_files)
         if length(sleep_staging) < length(I)
             sleep_staging = [zeros((length(I) - length(sleep_staging)),1) ; sleep_staging];
         end
-        
-%         if length(sleep_staging) < length(I)
-%             sleep_staging(end+1:length(I)) = 0;
-%         end
-%         figure;
-%         plot(sleep_staging)
-%         title(num2str(subj))
+
+        %         if length(sleep_staging) < length(I)
+        %             sleep_staging(end+1:length(I)) = 0;
+        %         end
+        %         figure;
+        %         plot(sleep_staging)
+        %         title(num2str(subj))
 
         % 26 and 15 are good subjects in terms of sleep staging
-        
+
         % spindle analyses in all channels
         I = sleep_staging>0;
         grid_sp = detect_spindles(data(1:6,:),I,soFilt,spFilt1,spFilt2,sleep_staging,400);
-        
+
         % storing file name
         grid_sp.filename = filename;
         grid_sp.sleep_staging = sleep_staging;
-        
+
         %store data
         grid_sp_exp{subj} = grid_sp;
-        
-        
+
+
         % Examining SO-spindle nesting in stage 3 sleep
         grid_so = SO_analyses(data(1:6,:),I,soFilt,spFilt1,spFilt2,sleep_staging);
         grid_so.filename = filename;
         grid_so.sleep_staging = sleep_staging;
-        
+
         % store data
         grid_so_exp{subj} = grid_so;
-        
+
     end
 end
 cd('C:\Users\nikic\OneDrive\Documents\MATLAB\Ana EEG')
@@ -370,7 +373,7 @@ xlim([0 30])
 ylim([0 4])
 cmap=parula(length(dp));
 for i=1:length(dp)
-    plot(dp(i),sp(i),'.','MarkerSize',20,'color',cmap(i,:));    
+    plot(dp(i),sp(i),'.','MarkerSize',20,'color',cmap(i,:));
     pause(0.005)
 end
 
@@ -418,7 +421,7 @@ ylabel('Power')
 set(gcf,'Color','w')
 set(gca,'FontSize',14)
 box off
-%plotting the 1/f spectrum after doing a robust regression fit 
+%plotting the 1/f spectrum after doing a robust regression fit
 x=F;
 y=(mean(((P)),2));
 [aa bb]=find(x<=20);
@@ -448,7 +451,7 @@ ylim([-0.05 0.8])
 
 
 
-% plot an example of a nested SO and spindle 
+% plot an example of a nested SO and spindle
 so=grid_so.ch3;
 sof=filtfilt(soFilt,ch);
 t=800;
@@ -602,7 +605,7 @@ set(gcf,'Color','w')
 axis tight
 
 % PLOTTING SOME PHASE BASED ANALYSES OF COUPLING IN SPINDLE BAND ACTIVITY
-% BETWEEN CHANNELS 
+% BETWEEN CHANNELS
 ch1=grid_sp.ch3.sp_epochs_N2;
 ch2=grid_sp.ch4.sp_epochs_N2;
 plv=[];
@@ -659,7 +662,7 @@ for i=1:100
         axis off
     end
 
-    % plotting phase on top of each other 
+    % plotting phase on top of each other
     if plotting==1
         figure;plot(tt,tmp_phase,'k','LineWidth',1)
         hold on
@@ -669,7 +672,7 @@ for i=1:100
         axis off
         set(gcf,'Color','w')
     end
-    
+
     phase_diff = exp(1i*(tmp_phase-tmp2_phase));
     plv(i)= mean(phase_diff);
 
@@ -677,7 +680,7 @@ for i=1:100
 end
 figure;stem(abs(plv))
 figure;rose(angle(plv))
-% plotting an example phase coupled channel 
+% plotting an example phase coupled channel
 alpha=angle(phase_diff);
 [t,r]=rose(alpha,20);
 figure
@@ -752,17 +755,17 @@ for subj=46:length(baseline_files)
     EEG = pop_biosig(filename,'importevent','off');
     eeglab redraw
     data= double(EEG.data);
-    
+
     % filter the data
     %data = filtfilt(lpFilt,data')';
-    
+
     % reference to mastoids
     ref = nanmean(data(7:8,:));
     data = data-ref;
-    
+
     % get good times
     I = data_good_times_baseline{subj}';
-    
+
     % get the appropriate staging file
     suc=[];
     for k=1:length(staging_files)
@@ -771,19 +774,19 @@ for subj=46:length(baseline_files)
             break
         end
     end
-    
+
     % get sleep staging data
     if ~isempty(suc)
-        
-        
-        
+
+
+
         disp('processing data')
-        
-        
+
+
         % restrict only to N2 sleep stages
         scores = importfile1(staging_files{suc},...
             'Data', [3, 233]);
-        
+
         % extract the time and day etc.
         time=[];sleep_score=[];
         for ii=1:size(scores,1)
@@ -793,36 +796,36 @@ for subj=46:length(baseline_files)
             sleep_score(ii) = scores.VarName2(ii);
         end
         time=time-time(1);
-        
-        
+
+
         % get the closest match between the scored data and the EEG data
         sleep_staging = [];
         for ii=1:length(time)
             temp_sleep_scores = sleep_score(ii) * ones(EEG.srate*30,1);
             sleep_staging = [sleep_staging ;temp_sleep_scores];
         end
-        
+
         if length(sleep_staging) < length(I)
             sleep_staging(end+1:length(I)) = 0;
         end
-        
+
         % spindle analyses in all channels
         I = (sleep_staging>0) .* (sleep_staging~=5);
         %I(1:1000)=0;
         grid_sp = detect_spindles(data(1:6,:),I,soFilt,spFilt1,spFilt2,sleep_staging,400);
-        
+
         % storing file name
         grid_sp.filename = filename;
         grid_sp.sleep_staging = sleep_staging;
-        
+
         %store data
         grid_sp_baseline{subj} = grid_sp;
-        
+
         % Examining SO-spindle nesting in stage 3 sleep
         grid_so = SO_analyses(data(1:6,:),I,soFilt,spFilt1,spFilt2,sleep_staging);
         grid_so.filename = filename;
         grid_so.sleep_staging = sleep_staging;
-        
+
         % store data
         grid_so_baseline{subj} = grid_so;
     end
