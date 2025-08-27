@@ -132,6 +132,8 @@ data = data(neural_ch,:);
 
 disp('Eye blink and artifact correction done')
 
+% check if Cz SOs coincide with Fz SOs and maybe EOG SOs? 
+
 %% GET PREFERRED SPINDLE FREQUENCY PER CHANNEL
 
 % get center frequency of spindle per channel using fft
@@ -226,6 +228,13 @@ figure;
 plot(t,nanmean(x.sp_epochs,1))
 plot_beautify
 
+%SO background activity
+x=grid_sp.ch26;
+t=linspace(-2,2,4001);
+figure;
+plot(t,nanmean(x.so_epochs_N3,1))
+plot_beautify
+
 % storing file name
 grid_sp.filename = filename;
 grid_sp.sleep_staging = sleep_staging;
@@ -249,6 +258,18 @@ axis tight
 xlabel('Time in sec')
 ylabel('uV')
 title('Detected SO Ch 24')
+
+%background spindle 
+x=grid_so.ch24;
+t=linspace(-0.6,0.5,1201);
+figure;
+plot(t,nanmean(x.ep_sp_N3,1),'LineWidth',1)
+plot_beautify
+axis tight
+xlabel('Time in sec')
+ylabel('uV')
+
+
 
 % store data
 grid_so_exp{subj} = grid_so;
