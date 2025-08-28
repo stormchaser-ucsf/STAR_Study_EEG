@@ -3,13 +3,21 @@
 
 
 clc;clear
-root_folder = 'F:\DATA\EEG Data Anne Richards\STAR\Phase 2\';
+%root_folder = 'F:\DATA\EEG Data Anne Richards\STAR\Phase 2\';
+
+root_folder = '/media/user/Data/Ana EEG/STAR/Phase 2/';
 cd(root_folder)
-cd('C:\Users\nikic\Documents\GitHub\STAR_Study_EEG')
-addpath('C:\Users\nikic\Documents\MATLAB\')
-addpath('C:\Users\nikic\Documents\MATLAB\eeglab2023.1')
-addpath(genpath('C:\Users\nikic\Documents\GitHub\STAR_Study_EEG\SAGA_Matlab'))
-addpath('C:\Users\nikic\Documents\GitHub\STAR_Study_EEG\helpers')
+
+%cd('C:\Users\nikic\Documents\GitHub\STAR_Study_EEG')
+% addpath('C:\Users\nikic\Documents\MATLAB\')
+% addpath('C:\Users\nikic\Documents\MATLAB\eeglab2023.1')
+% addpath(genpath('C:\Users\nikic\Documents\GitHub\STAR_Study_EEG\SAGA_Matlab'))
+% addpath('C:\Users\nikic\Documents\GitHub\STAR_Study_EEG\helpers')
+
+addpath('/home/user/Documents/MATLAB/')
+addpath('/home/user/Documents/MATLAB/eeglab2023.1')
+addpath(genpath('/home/user/Documents/Repositories/STAR_Study_EEG'))
+
 
 % starting eeglab
 eeglab
@@ -63,8 +71,9 @@ deltaFilt = designfilt('bandpassiir','FilterOrder',4, ...
 % detect the peak spindle frequency by investigating the power spectrum
 % peak
 
-filename=  '24012_SleepStages';
-filepath = 'F:\DATA\EEG Data Anne Richards\STAR\Phase 2\Participant 24012\Sleep Stage Report';
+filename=  '24011_SleepStages';
+%filepath = 'F:\DATA\EEG Data Anne Richards\STAR\Phase 2\Participant 24012\Sleep Stage Report';
+filepath = '/media/user/Data/Ana EEG/STAR/Phase 2/Participant 24011/Sleep Stage Report/';
 filename = fullfile(filepath,filename);
 sleep_profile = table2array(importfile_sleep(filename,'Data',[3, Inf]));
 figure;plot(sleep_profile)
