@@ -98,7 +98,7 @@ for i=1:size(data_main,1)
         end
     end
 
-    [sp_st sp_end] = combine_events(sp_st,sp_end,300,2000);
+    [sp_st sp_end] = combine_events(sp_st,sp_end,300,2000,Fs);
     name = ['ch' num2str(i)];
     grid_sp.(name).sp_st=sp_st;
     grid_sp.(name).sp_end=sp_end;
