@@ -49,11 +49,11 @@ spFilt = designfilt('bandpassiir','FilterOrder',4, ...
     'SampleRate',EEG.srate);
 
 spFilt1 = designfilt('bandpassiir','FilterOrder',4, ...
-    'HalfPowerFrequency1',8,'HalfPowerFrequency2',12, ...
+    'HalfPowerFrequency1',9,'HalfPowerFrequency2',13, ...
     'SampleRate',EEG.srate);
 
 spFilt2 = designfilt('bandpassiir','FilterOrder',4, ...
-    'HalfPowerFrequency1',12,'HalfPowerFrequency2',16, ...
+    'HalfPowerFrequency1',13,'HalfPowerFrequency2',16, ...
     'SampleRate',EEG.srate);
 
 soFilt = designfilt('bandpassiir','FilterOrder',4, ...
@@ -136,7 +136,7 @@ data=Y;
 clear Y H Hh
 
 % remove the EOG channels
-neural_ch = [1:66];
+neural_ch = [1:64];
 data = data(neural_ch,:);
 
 disp('Eye blink and artifact correction done')
@@ -144,18 +144,18 @@ disp('Eye blink and artifact correction done')
 % check if Cz SOs coincide with Fz SOs and maybe EOG SOs? 
 
 %% INTERPOLATE BAD CHANNELS 
-% bad_ch = 12;
-% EEG = pop_interp(EEG, [bad_ch], 'spherical');
-% [ALLEEG EEG CURRENTSET] = pop_newset(ALLEEG, EEG, 1,'overwrite','on','gui','off');
-% eeglab redraw
+bad_ch = 12;
+EEG = pop_interp(EEG, [bad_ch], 'spherical');
+[ALLEEG EEG CURRENTSET] = pop_newset(ALLEEG, EEG, 1,'overwrite','on','gui','off');
+eeglab redraw
 
 
 %% GET PREFERRED SPINDLE FREQUENCY PER CHANNEL
 
 % get center frequency of spindle per channel using fft
 topo_spindle_freq=[];
-win_length=4096;
-onebyf_flag = false;
+win_length=2048;
+onebyf_flag = f
 parfor ch=1:64
     disp(['Processing Channel ' num2str(ch)]);
     chdata = data(ch,:);
@@ -228,21 +228,6 @@ end
 
 figure;plot(topo_spindle_freq)
 
-% plot on brain
-fast_spindle_idx = topo_spindle_freq>=median(topo_spindle_freq);
-slow_spindle_idx = topo_spindle_freq<median(topo_spindle_freq);
-figure;
-topoplot(topo_spindle_freq, EEG.chanlocs); 
-axis tight
-clim([min(topo_spindle_freq) max(topo_spindle_freq)])
-disp([min(topo_spindle_freq) max(topo_spindle_freq)])
-colorbar
-if onebyf_flag
-    title("Preferred Spindle Freq 1/f")
-else
-    title("Preferred Spindle Freq no 1/f yes eye blink")
-end
-
 %% PERFORM SPINDLE AND SO ANALYSES
 
 
@@ -254,7 +239,7 @@ slow_fast_idx(fast_spindle_ch)=1;
 
 % spindle analyses in all channels
 I = sleep_staging>0;
-grid_sp = detect_spindles(data(1:64,:),I,soFilt,spFilt1,spFilt2,sleep_staging,Fs,slow_fast_idx);
+grid_sp = detect_spindles(data,I,soFilt,spFilt1,spFilt2,sleep_staging,Fs,slow_fast_idx);
 
 % plotting
 x=grid_sp.ch24;
@@ -279,7 +264,7 @@ grid_sp_exp{subj} = grid_sp;
 
 
 % Examining SO-spindle nesting in stage 3 sleep
-grid_so = SO_analyses(data(1:64,:),I,soFilt,spFilt1,spFilt2,sleep_staging,slow_fast_idx,Fs);
+grid_so = SO_analyses(data,I,soFilt,spFilt1,spFilt2,sleep_staging,slow_fast_idx,Fs);
 grid_so.filename = filename;
 grid_so.sleep_staging = sleep_staging;
 
