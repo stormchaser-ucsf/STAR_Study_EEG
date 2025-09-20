@@ -1,4 +1,5 @@
-function [grid_so] = SO_analyses(data_main,I,soFilt,spFilt1,spFilt2,sleep_staging,slow_fast_idx,Fs)
+function [grid_so] = ...
+    SO_analyses(data_main,I,soFilt,spFilt1,spFilt2,sleep_staging,slow_fast_idx,Fs)
 %function [grid_so] = SO_analyses(data,I,bpFilt,spFilt1,spFilt2,sleep_staging)
 
 % identify the ied times large high freq spikes
@@ -26,6 +27,7 @@ for i=1:size(data_main,1)
     name = ['ch' num2str(i)];
     so_data = data_main(i,:);
     so_data = filtfilt(soFilt,so_data);
+    raw_data = data_main(i,:);
     
     if slow_fast_idx(i)==0
         sp_data = abs(hilbert(filtfilt(spFilt1,data_main(i,:))));
@@ -71,10 +73,31 @@ for i=1:size(data_main,1)
             bb = bb + so_st_new(ii)-1;
             ep_so = [ep_so; so_data(bb+[-600:600])];            
         end
-    end
-    
+    end    
     grid_so.(name).ep_sp_N3 = ep_sp;
     grid_so.(name).ep_so_N3 = ep_so;
     grid_so.(name).N3_so_idx = N3_so_idx;
+
+    % more generally, get the preferred spindle frequency in the time
+    % periods around the SO    
+    pref_spindle_freq=[];
+    for ii=1:length(so_st_new)
+        temp=raw_data(so_st_new(ii):so_end_new(ii));
+        [aa bb]=max(temp);
+        bb = bb + so_st_new(ii)-1;
+        data_seg = raw_data(bb+[-2048:2047]);
+
+        % get preferred non 1byf frequency
+        [Pxx,F]=pwelch(data_seg,1024,256,1024,Fs);
+        Pxx = log2(Pxx);ff=F;
+        idx = logical((ff>=7.9) .* (ff<=16.1));
+        ff = ff(idx);
+        power_spindle = Pxx(idx);
+        [aa bb]=max(power_spindle);
+        pref_freq = ff(bb);
+        pref_spindle_freq(ii) = pref_freq;
+    end
+
+    grid_so.(name).preferred_spindle_freq = nanmedian(pref_spindle_freq);
     
 end

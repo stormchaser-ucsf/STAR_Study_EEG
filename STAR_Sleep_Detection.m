@@ -1,5 +1,10 @@
 
-%% PRELIMS
+%% MAIN
+
+% spindle power per channel in following criteria: 
+% spindle power in N2 sleep per channel
+% spindle power in N3 sleep per channel
+% spindle power around a time a SO occurs in N3 sleep 
 
 
 clc;clear
@@ -19,6 +24,39 @@ addpath('/home/user/Documents/MATLAB/eeglab2023.1')
 addpath(genpath('/home/user/Documents/Repositories/STAR_Study_EEG'))
 
 
+% low pass filters
+lpFilt = designfilt('bandpassiir','FilterOrder',4, ...
+    'HalfPowerFrequency1',0.1,'HalfPowerFrequency2',30, ...
+    'SampleRate',1000);
+
+bpFilt = designfilt('bandpassiir','FilterOrder',4, ...
+    'HalfPowerFrequency1',65,'HalfPowerFrequency2',100, ...
+    'SampleRate',1000);
+
+spFilt = designfilt('bandpassiir','FilterOrder',4, ...
+    'HalfPowerFrequency1',8,'HalfPowerFrequency2',16, ...
+    'SampleRate',1000);
+
+spFilt1 = designfilt('bandpassiir','FilterOrder',4, ...
+    'HalfPowerFrequency1',8,'HalfPowerFrequency2',12, ...
+    'SampleRate',1000);
+
+spFilt2 = designfilt('bandpassiir','FilterOrder',4, ...
+    'HalfPowerFrequency1',12,'HalfPowerFrequency2',16, ...
+    'SampleRate',1000);
+
+soFilt = designfilt('bandpassiir','FilterOrder',4, ...
+    'HalfPowerFrequency1',0.16,'HalfPowerFrequency2',1.25, ...
+    'SampleRate',1000);
+
+deltaFilt = designfilt('bandpassiir','FilterOrder',4, ...
+    'HalfPowerFrequency1',0.5,'HalfPowerFrequency2',4, ...
+    'SampleRate',1000);
+
+d1 = designfilt('bandpassiir','FilterOrder',4, ...
+        'HalfPowerFrequency1',0.1,'HalfPowerFrequency2',30, ...
+        'SampleRate',1e3);
+
 % starting eeglab
 eeglab
 
@@ -29,8 +67,14 @@ subject_names={'24011','24012','24014','24015','24016','24017','24018','24019','
 
 root_path='/media/user/Data/Ana EEG/STAR/Phase 2';
 
-for i=1:length(subject_names)
-    % STEP 1: LOAD THE EDF FILE
+nap_filenames={};
+topo_spindle_N2_subj=[];
+topo_spindle_N3_subj=[];
+topo_SO_nested_spindle_subj=[];
+% do the conversion first
+for i=13:length(subject_names)
+    
+    %%%%%%%%%% STEP 1: LOAD THE EDF FILE
     folderpath = fullfile([root_path, '/Participant ' subject_names{i}] );
     cd(folderpath);
     tmp = findfiles('.Poly5',pwd)';
@@ -41,10 +85,132 @@ for i=1:length(subject_names)
         end
     end
     filename = tmp{nap_idx};
-    Poly5toEEGlab(filename)
+    if ~isfile([filename(57:end-11) '.set'])
+        Poly5toEEGlab(filename)
+    end
+    %nap_filenames(i) = filename;
+
+    %%%%%%%%% STEP 2: load the data
+    filename = [filename(57:end-11) '.set'];
+    EEG = pop_loadset('filename',filename,...
+        'filepath',pwd);
+    [ALLEEG, EEG, CURRENTSET] = eeg_store( ALLEEG, EEG, 0 );
+    eeglab redraw    
+    data = double(EEG.data);
+
+    % load sleep stages
+    participant_name = subject_names{i};
+    filename=  [participant_name '_SleepStages'];    
+    filepath = fullfile(pwd,'Sleep Stage Report');
+    filename = fullfile(filepath,filename);
+    sleep_profile = table2array(importfile_sleep(filename,'Data',[3, Inf]));
+    figure;plot(sleep_profile)
+
+    % convert to full 1khz 30s arrays
+    Fs=1e3;
+    sleep_staging = zeros(Fs * 30 * length(sleep_profile),1);
+    k=1;
+    for ii=1:(30*Fs):length(sleep_staging)
+        t = ii : ii+30*Fs-1;
+        sleep_staging(t) = sleep_profile(k);
+        k=k+1;
+    end
+    figure;plot(sleep_staging)
+
+    if length(sleep_staging)<size(EEG.data,2)
+        sleep_staging(end+1:size(EEG.data,2)) = sleep_staging(end);
+    end
+
+    %%%%%%%% STEP 3
+    % band pass filter the data    
+    data = filtfilt(d1,data')';
+    % re-reference the data to M1/M2
+    ref = data([13 19],:);
+    ref = mean(ref,1);
+    data(1:68,:) = data(1:68,:) - ref;
+    % restrict to the 62 neural channels, 2 reference and 2 EOG
+    data = data(1:66,:);
+
+    %%%%%%% STEP 4: DETECT SPINDLE FREQENCIES PER CHANNEL IN N2 AND N3 SLEEP
+    onebyf_flag=0;
+    [topo_spindle_N2,topo_spindle_N3] = ...
+        topo_spindle_frequency(data,sleep_staging,onebyf_flag);
+
+    topo_spindle_N2_subj(i,:) = topo_spindle_N2;
+    topo_spindle_N3_subj(i,:) = topo_spindle_N3;
+
+    %%%%% STEP 5: DETECT SOs AND ALSO PREFERRED SPINDLE FREQ AROUND SOs. 
+    slow_spindle_ch = [1:12 33:43 59 60];
+    fast_spindle_ch=[14:18 20:32 44:58 61:64];
+    ref_ch = [13 19];
+    slow_fast_idx=zeros(64,1);
+    slow_fast_idx(fast_spindle_ch)=1;
+
+    I = sleep_staging>0;
+    grid_so = SO_analyses(data(1:64,:),I,soFilt,spFilt1,spFilt2,sleep_staging,slow_fast_idx,Fs);
+    topo_SO_nested_spindle = [];
+    for ch=1:64
+         name = ['ch' num2str(ch)];
+         topo_SO_nested_spindle(ch) = grid_so.(name).preferred_spindle_freq;
+    end
+    topo_SO_nested_spindle_subj(i,:) = topo_SO_nested_spindle;
+
+    grid_so.filename = filename;
+    grid_so.sleep_staging = sleep_staging;
+
+    %%%%%%% clear all
+    STUDY = []; CURRENTSTUDY = 0; ALLEEG = []; EEG=[]; CURRENTSET=[];
+    clear data;close all
+    eeglab redraw
+
+    
 end
 
+cd(root_path)
+save spindle_topo_analyses topo_spindle_N2_subj ...
+    topo_spindle_N3_subj topo_SO_nested_spindle_subj -v7.3
 
+% plotting
+figure
+tmp = nanmean(topo_SO_nested_spindle_subj,1);
+subplot(1,3,3)
+topoplot(tmp, EEG.chanlocs(1:64)); 
+axis tight
+clim([min(tmp) max(tmp)])
+clim([8.6 11.7])
+disp([min(tmp) max(tmp)])
+disp([8.6 11.7])
+colorbar
+title('SO nested spindle freq')
+
+tmp = nanmean(topo_spindle_N2_subj,1);
+subplot(1,3,1)
+topoplot(tmp, EEG.chanlocs(1:64)); 
+axis tight
+clim([min(tmp) max(tmp)])
+clim([8.6 11.7])
+disp([min(tmp) max(tmp)])
+disp([8.6 11.7])
+colorbar
+title('N2 spindle freq')
+
+tmp = nanmean(topo_spindle_N3_subj,1);
+subplot(1,3,2)
+topoplot(tmp, EEG.chanlocs(1:64)); 
+axis tight
+clim([min(tmp) max(tmp)])
+clim([8.6 11.7])
+disp([min(tmp) max(tmp)])
+disp([8.6 11.7])
+colorbar
+title('N3 spindle freq')
+
+% stats
+ch=16;
+spindle_freq = [topo_spindle_N2_subj(:,ch) topo_spindle_N3_subj(:,ch) ...
+    topo_SO_nested_spindle_subj(:,ch)];
+figure;
+boxplot(spindle_freq)
 
 %% LOAD THE PLOY5 AND EDF FILE
 
