@@ -26,7 +26,7 @@ elseif isunix
 end
 
 % go to the specific subject's folder
-subj_name = ['Participant ' '24038'];
+subj_name = ['Participant ' '24034'];
 root_path = fullfile('/media/user/Data/Ana EEG/STAR/Phase 2',subj_name);
 cd(root_path)
 
@@ -49,8 +49,7 @@ data=EEG.data;
 
 % plot the stim trigger -> the channel differs by recording?
 figure;
-%stim = data(83,:);
-stim = data(79,:);
+stim = data(83,:);
 stem(stim)
 
 % extract the stim onsets from the triggers
@@ -85,7 +84,7 @@ stim_onsets = stim_onsets(1:2:end); % taking into account just the two pulse fla
 
 % now taking into account that the stim onsets have a 40ms delay due to
 % photosensor settings
-stim_onsets = stim_onsets-3; % look at the screenshots from Iryne
+stim_onsets = stim_onsets-6; % look at the screenshots from Iryne
 figure;stem(stim)
 vline(stim_onsets,'r')
 disp(['number of detected stim is ' num2str(length(stim_onsets))]);
@@ -94,8 +93,7 @@ disp(['number of detected stim is ' num2str(length(stim_onsets))]);
 tmp = zeros(size(stim));
 tmp(stim_onsets)=1;
 figure;stem(tmp)
-%data(83,:) = tmp;
-data(79,:) = tmp;
+data(83,:) = tmp;
 
 %% Filter the data ...ZERO PADD TO ACCOUNT FOR FILTERING ARTIFACTS
 data=double(data);
@@ -158,7 +156,7 @@ EEG = pop_scrls_regression( EEG, [65  66], 2, 0.9999, 0.01, 32, []);
 X=EEG.data;Xbkup=EEG.data;
 indata = X(1:64,:);
 opt.refdata = X(65:66,:);
-opt.M = 3;
+opt.M = 2;
 opt.lambda = 0.9999;
 opt.sigmal = 0.01;
 opt.prec = 32;
@@ -178,8 +176,7 @@ plot(Xbkup(34,:))
 %% correct the stim signal
 
 data_ac=EEG.data;
-%stim_ac = data_ac(83,:);
-stim_ac = data_ac(79,:);
+stim_ac = data_ac(83,:);
 figure;stem(stim_ac)
 hold on
 stim_ac(stim_ac>0.9)=1;
@@ -196,7 +193,7 @@ if sum(stim_ac==tmp)/length(tmp) ==1
 
     % examine bad channels
     figure;
-    for i=35:37
+    for i=1:66
         plot(data_ac(i,:));
         title(num2str(i))
         ylim([-500 500])
@@ -211,9 +208,9 @@ end
 
 %% remove bad channel and interpolate missing values, if necessary
 %bad_ch=12;
-bad_ch=[36]-2; % removing M1 and M2
+bad_ch=[];
 if ~isempty(bad_ch)
-    EEG.data(bad_ch+2,:)=0;
+    EEG.data(bad_ch,:)=0;
     eeglab redraw
 end
 EEG = pop_select( EEG, 'rmchannel',{'M1','M2','SpO2','PLETH','HRate','Stat','TRIGGERS1',...
@@ -263,7 +260,7 @@ eeglab redraw
 
 %% plot ERPs over occipital
 
-EEG = pop_autorej(EEG, 'nogui','on','threshold',200,'eegplot','on'); % automatic bad trial rejection
+EEG = pop_autorej(EEG, 'nogui','on','threshold',250,'eegplot','on'); % automatic bad trial rejection
 bad_trials = find(EEG.reject.rejauto);% bad trials
 close
 
@@ -384,7 +381,7 @@ title('Subject 204022 Central Channels')
 
 % plot ERPs
 data=EEG.data;
-data(:,:,bad_trials) = NaN;
+%data(:,:,bad_trials) = NaN;
 chdata1=[];
 chdata1 = squeeze(cat(3,chdata1,data(6,:,idx_trauma),data(36,:,idx_trauma),data(37,:,idx_trauma)));
 chdata2=[];
@@ -708,7 +705,6 @@ idx_neutral = logical(idx_neutral);
 chdata_neutral=[];
 chdata_trauma=[];
 k=1;
-error_files=[];
 for i=1:length(files)
 
 
@@ -718,7 +714,6 @@ for i=1:length(files)
         file_loaded=true;
     catch
         file_loaded=false;
-        error_files=[error_files i];
     end
 
     if file_loaded
@@ -741,7 +736,7 @@ for i=1:length(files)
         % ac1 = sum(abs(chdata1)>150);
         % ac1 = find(ac1~=0);
         % chdata1(:,ac1)=NaN;
-        chdata_trauma(k,:) = smooth(nanmean(chdata1,2),50);
+        chdata_trauma(k,:) = nanmean(chdata1,2);
 
         % Get neutral ERPs
         chdata2=[];
@@ -754,7 +749,7 @@ for i=1:length(files)
         % ac2 = sum(abs(chdata2)>150);
         % ac2 = find(ac2~=0);
         % chdata2(:,ac2)=NaN;
-        chdata_neutral(k,:) = smooth(nanmean(chdata2,2),50);
+        chdata_neutral(k,:) = nanmean(chdata2,2);
 
 
         STUDY = []; CURRENTSTUDY = 0; ALLEEG = []; EEG=[]; CURRENTSET=[];
