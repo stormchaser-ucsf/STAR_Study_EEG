@@ -26,7 +26,7 @@ elseif isunix
 end
 
 % go to the specific subject's folder
-subj_name = ['Participant ' '24034'];
+subj_name = ['Participant ' '24039'];
 root_path = fullfile('/media/user/Data/Ana EEG/STAR/Phase 2',subj_name);
 cd(root_path)
 
@@ -49,8 +49,15 @@ data=EEG.data;
 
 % plot the stim trigger -> the channel differs by recording?
 figure;
-stim = data(83,:);
+%stim = data(83,:);
+stim = data(79,:);
 stem(stim)
+
+% remove unncesary triggers at the end
+[aa bb]=ginput;
+aa=round(aa);
+vline(aa,'r')
+stim(aa:end)=0;
 
 % extract the stim onsets from the triggers
 d = [0 diff(stim)];
@@ -84,7 +91,7 @@ stim_onsets = stim_onsets(1:2:end); % taking into account just the two pulse fla
 
 % now taking into account that the stim onsets have a 40ms delay due to
 % photosensor settings
-stim_onsets = stim_onsets-6; % look at the screenshots from Iryne
+stim_onsets = stim_onsets-3; % look at the screenshots from Iryne
 figure;stem(stim)
 vline(stim_onsets,'r')
 disp(['number of detected stim is ' num2str(length(stim_onsets))]);
@@ -93,7 +100,8 @@ disp(['number of detected stim is ' num2str(length(stim_onsets))]);
 tmp = zeros(size(stim));
 tmp(stim_onsets)=1;
 figure;stem(tmp)
-data(83,:) = tmp;
+%data(83,:) = tmp;
+data(79,:) = tmp;
 
 %% Filter the data ...ZERO PADD TO ACCOUNT FOR FILTERING ARTIFACTS
 data=double(data);
@@ -156,7 +164,7 @@ EEG = pop_scrls_regression( EEG, [65  66], 2, 0.9999, 0.01, 32, []);
 X=EEG.data;Xbkup=EEG.data;
 indata = X(1:64,:);
 opt.refdata = X(65:66,:);
-opt.M = 2;
+opt.M = 3;
 opt.lambda = 0.9999;
 opt.sigmal = 0.01;
 opt.prec = 32;
@@ -176,7 +184,8 @@ plot(Xbkup(34,:))
 %% correct the stim signal
 
 data_ac=EEG.data;
-stim_ac = data_ac(83,:);
+%stim_ac = data_ac(83,:);
+stim_ac = data_ac(79,:);
 figure;stem(stim_ac)
 hold on
 stim_ac(stim_ac>0.9)=1;
@@ -193,7 +202,7 @@ if sum(stim_ac==tmp)/length(tmp) ==1
 
     % examine bad channels
     figure;
-    for i=1:66
+    for i=33:36
         plot(data_ac(i,:));
         title(num2str(i))
         ylim([-500 500])
@@ -208,9 +217,9 @@ end
 
 %% remove bad channel and interpolate missing values, if necessary
 %bad_ch=12;
-bad_ch=[];
+bad_ch=[33 36]-2; % since we are removing M1 and M2
 if ~isempty(bad_ch)
-    EEG.data(bad_ch,:)=0;
+    EEG.data(bad_ch+2,:)=0;
     eeglab redraw
 end
 EEG = pop_select( EEG, 'rmchannel',{'M1','M2','SpO2','PLETH','HRate','Stat','TRIGGERS1',...
@@ -260,7 +269,7 @@ eeglab redraw
 
 %% plot ERPs over occipital
 
-EEG = pop_autorej(EEG, 'nogui','on','threshold',250,'eegplot','on'); % automatic bad trial rejection
+EEG = pop_autorej(EEG, 'nogui','on','threshold',200,'eegplot','on'); % automatic bad trial rejection
 bad_trials = find(EEG.reject.rejauto);% bad trials
 close
 
@@ -381,7 +390,7 @@ title('Subject 204022 Central Channels')
 
 % plot ERPs
 data=EEG.data;
-%data(:,:,bad_trials) = NaN;
+data(:,:,bad_trials) = NaN;
 chdata1=[];
 chdata1 = squeeze(cat(3,chdata1,data(6,:,idx_trauma),data(36,:,idx_trauma),data(37,:,idx_trauma)));
 chdata2=[];
@@ -445,6 +454,367 @@ title('Subject 204022 Frontal Channels')
 %
 % plot(e);
 % legend('Sig','BP1','AC')
+
+
+%% ERP SNIPPET ANALYSES (MAIN) GROUP LEVEL SPATIOTEMPORAL CONTRASTS
+%  looping over subjects loading the data and looking at grand averaged ERPs
+
+%
+% EEG = pop_autorej(EEG, 'nogui','on','threshold',300,'eegplot','on'); % automatic bad trial rejection
+%  bad_trials = find(EEG.reject.rejauto);% bad trials
+
+clc;clear
+close all
+
+% adding paths
+%addpath(genpath('C:\Users\nikic\Documents\MATLAB\Ana EEG\hdEEG_Trauma_PTSD\SAGA_Matlab\SAGA_interface'))
+%root_path = 'F:\DATA\EEG Data Anne Richards\STAR\STAR_Pilot_data-selected\Pilot18';
+%root_path='F:\DATA\EEG Data Anne Richards\STAR\Phase 2\Snippet_Datasets_Processed';
+addpath(genpath('/home/user/Documents/Repositories/STAR_Study_EEG/SAGA_Matlab/SAGA_interface'))
+addpath('/home/user/Documents/MATLAB/eeglab2023.1')
+%addpath(genpath('C:\Users\nikic\Documents\MATLAB\fieldtrip-20250114'))
+addpath('/home/user/Documents/MATLAB')
+root_path='/media/user/Data/Ana EEG/STAR/Phase 2/Snippet_Datasets_Processed';
+cd(root_path)
+eeglab
+
+files=findfiles('.set',root_path)';
+
+%Splitting into neutral and trauma snippets
+neutral_epochs= [1 3 5 7 8 11 14 17 19 21 23 24 27 29 30 33 34 37 39 40];
+idx_neutral = zeros(40,1);
+idx_neutral(neutral_epochs)=1;
+trauma_epochs = find(idx_neutral==0);
+idx_trauma = zeros(40,1);
+idx_trauma(trauma_epochs)=1;
+idx_trauma = logical(idx_trauma);
+idx_neutral = logical(idx_neutral);
+
+chdata_neutral=[];
+chdata_trauma=[];
+k=1;
+error_files=[];
+no_epochs_rej=[];
+for i=1:length(files)
+
+
+    try
+        EEG = pop_loadset('filename',files{i});
+        eeglab redraw
+        file_loaded=true;
+    catch
+        file_loaded=false;
+        error_files=[error_files i];
+    end
+
+    if file_loaded
+
+        % bad trial rejection
+        EEG = pop_autorej(EEG, 'nogui','on','threshold',200,'eegplot','on'); % automatic bad trial rejection
+        bad_trials = find(EEG.reject.rejauto);% bad trials
+        close
+        data=EEG.data;
+        data(:,:,bad_trials) = NaN;
+        no_epochs_rej = [no_epochs_rej length(bad_trials)];
+
+        % detrend each channel's epochs remove baseline from each channel's
+        % epochs
+        for j=1:size(data,1)
+
+            % detrend
+            tmp = squeeze(data(j,:,:));
+            tmp = detrend(tmp);
+
+            % remove baseline
+            m = nanmean(tmp(1:1000,:),1);
+            tmp = tmp - m;
+
+            % store
+            data(j,:,:) = tmp;
+        end
+
+        % Get Trauma ERPs
+        data_trauma = data(:,:,idx_trauma);
+        data_trauma = nanmean(data_trauma,3);
+        chdata_trauma = cat(3,chdata_trauma,data_trauma);
+
+        % Get Neutral ERPs
+        data_neutral = data(:,:,idx_neutral);
+        data_neutral = nanmean(data_neutral,3);
+        chdata_neutral = cat(3,chdata_neutral,data_neutral);
+
+        %
+        % chdata1=[];
+        % %chdata1 = squeeze(cat(3,chdata1,data(6,:,idx_trauma),data(36,:,idx_trauma),data(37,:,idx_trauma)));
+        % chdata1 = squeeze(cat(3,chdata1,data(28,:,idx_trauma),data(29,:,idx_trauma),data(30,:,idx_trauma),...
+        %     data(27,:,idx_trauma),data(54,:,idx_trauma),data(55,:,idx_trauma)));
+        % %chdata1 = squeeze(cat(3,chdata1,data(15,:,idx_trauma),data(43,:,idx_trauma),data(44,:,idx_trauma),...
+        % %     data(47,:,idx_trauma),data(40,:,idx_trauma)));
+        %
+        % % ac1 = sum(abs(chdata1)>150);
+        % % ac1 = find(ac1~=0);
+        % % chdata1(:,ac1)=NaN;
+        % chdata_trauma(k,:) = smooth(nanmean(chdata1,2),50);
+        %
+        % % Get neutral ERPs
+        % chdata2=[];
+        % %chdata2 = squeeze(cat(3,chdata2,data(6,:,idx_neutral),data(36,:,idx_neutral),data(37,:,idx_neutral)));
+        % chdata2 = squeeze(cat(3,chdata2,data(28,:,idx_neutral),data(29,:,idx_neutral),data(30,:,idx_neutral),...
+        %     data(27,:,idx_neutral),data(54,:,idx_neutral),data(55,:,idx_neutral)));
+        % % chdata2 = squeeze(cat(3,chdata2,data(15,:,idx_neutral),data(43,:,idx_neutral),data(44,:,idx_neutral),...
+        % %     data(47,:,idx_neutral),data(40,:,idx_neutral)));
+        %
+        % % ac2 = sum(abs(chdata2)>150);
+        % % ac2 = find(ac2~=0);
+        % % chdata2(:,ac2)=NaN;
+        % chdata_neutral(k,:) = smooth(nanmean(chdata2,2),50);
+
+
+        STUDY = []; CURRENTSTUDY = 0; ALLEEG = []; EEG=[]; CURRENTSET=[];
+        eeglab redraw
+        k=k+1;
+
+    end
+end
+
+
+% spatiotemporal cluster correction
+%addpath('C/home/user/Documents/Repositories/limo_tools/limo_tools')
+addpath(genpath('/home/user/Documents/Repositories/limo_tools/'))
+tfce_flag = false;
+loop_iter=1000;
+t_scores=[];tboot=zeros(62,7000,loop_iter);
+p_scores=[];pboot=zeros(62,7000,loop_iter);
+
+parfor ch=1:size(chdata_neutral,1)
+    tmp_neutral = squeeze(chdata_neutral(ch,:,:));
+    tmp_trauma = squeeze(chdata_trauma(ch,:,:));
+
+    a = zscore(tmp_neutral')';
+    I = abs(a)>4;
+    tmp_neutral(I) = NaN;
+
+    a = zscore(tmp_trauma')';
+    I = abs(a)>4;
+    tmp_trauma(I) = NaN;
+
+
+    [h,p,ci,stats] = ttest(tmp_trauma',tmp_neutral');
+    t = stats.tstat;
+    if tfce_flag
+        t(p>0.05)=0; % only if TFCE
+    end
+    t_scores(ch,:) = t;
+    p_scores(ch,:) = p;
+
+
+    % null hypothesis testing using permutation tests        
+    for loop=1:loop_iter
+
+        d = tmp_trauma - tmp_neutral;
+        flip = sign(randn(size(d)));
+        d = d.*flip;
+        [h0 p0 ci stats0] = ttest(d');
+        t0=stats0.tstat;
+        if tfce_flag
+            t0(p0>0.05)=0; % only if TFCE
+        end
+        tboot(ch,:,loop)=t0;
+        pboot(ch,:,loop)=p0;
+    end
+end
+
+% get neighborhood distance matrix
+neighb = limo_neighbourdist(EEG, 0.40);
+
+
+if tfce_flag
+    E=1;H=2;dh=0.2;
+    [tfce_score,~] = limo_tfce(2,t_scores,neighb,1,E,H,dh);
+    [tfce_score_boot,~] = limo_tfce(2,tboot,neighb,1,E,H,dh);
+
+    % get the null distribution of tfce score from each bootstrap
+    tfce_boot=[];
+    for loop=1:size(tfce_score_boot,3)
+        a=squeeze(tfce_score_boot(:,:,loop));
+        tfce_boot(loop) = max(a(:));
+    end
+
+    % threshold the true tfce scores with the null distribution
+    tfce_boot=sort(tfce_boot);tfce_score1=tfce_score;
+    thresh = tfce_boot(round(0.95*length(tfce_boot)));
+    tfce_score1(tfce_score1<thresh)=0;
+    figure;
+    subplot(3,1,1)
+    tt=linspace(-1,6,size(t_scores,2));
+    imagesc(tt,1:62,t_scores);
+    title('Uncorrected for multiple comparisons')
+    subplot(3,1,2)
+    imagesc(tt,1:62,tfce_score1)
+    ylabel('Channels')
+    xlabel('Time')
+    title('Spatiotemp. multiple comparison corrected')
+
+    % plot the significant channels
+    a=tfce_score1;
+    aa=sum(a(:,3000:6000),2);
+    sig_ch_idx = find(aa>0);
+    sig_ch = zeros(numel(chMap),1);
+    sig_ch(sig_ch_idx)=1;
+    sig_ch_all(i,:) = sig_ch;
+    subplot(3,1,3);
+    imagesc(sig_ch(chMap))
+    title('Sig channels 0 to 3s')
+    sgtitle(ImaginedMvmt{i})
+    axis off
+    set(gcf,'Color','w')
+
+else
+    % 2D spatiotemporal cluster correction
+    LIMO.data.chanlocs=[];
+    LIMO.data.neighbouring_matrix=neighb;
+    [mask,cluster_p,max_th] = ...
+        limo_clustering((t_scores.^2),p_scores,...
+        (tboot.^2),pboot,LIMO,2,0.05,0);
+    figure;subplot(3,1,1)
+    tt=linspace(-1,6,size(t_scores,2));
+    imagesc(tt,1:62,t_scores);
+    title('Uncorrected for multiple comparisons')
+    ylabel('Channels')
+    xlabel('Time')
+    subplot(3,1,2)
+    t_scores1=t_scores;
+    t_scores1(mask==0)=0;
+    imagesc(tt,1:62,t_scores1);
+    title('Corrected for multiple comparisons')
+    ylabel('Channels')
+    xlabel('Time')
+
+    a=mask;
+    aa=sum(a(:,3000:6000),2);
+    sig_ch_idx = find(aa>0);
+    sig_ch = zeros(numel(chMap),1);
+    sig_ch(sig_ch_idx)=1;
+    sig_ch_all(i,:) = sig_ch;
+    subplot(3,1,3);
+    imagesc(sig_ch(chMap))
+    title('Sig channels 0 to 3s')
+    sgtitle(ImaginedMvmt{i})
+    axis off
+    set(gcf,'Color','w')
+    colorbar
+end
+
+% make a movie
+v=VideoWriter('ERP_EvsN');
+v.FrameRate=16;
+open(v)
+figure;
+M={};
+vmin = min(t_scores1(:));
+vmax = max(t_scores1(:));
+for i=750:3:size(t_scores1,2)
+    disp(i)
+    tmp = t_scores1(:,i);
+    topoplot(tmp,EEG.chanlocs, 'maplimits', [-6 6],...
+        'numcontour', 0);    
+    colorbar
+    axis tight
+    sgtitle([num2str(tt(i)) ' Sec'])
+    frame=getframe(gcf);
+    img = frame2im(frame); 
+    %M{i} = (img);
+    writeVideo(v,img)
+    clf
+end
+close(v)
+
+% plot ERPs
+channels={EEG.chanlocs.labels};
+ch=[6 15 27];
+figure;
+for i=1:length(ch)
+    subplot(3,1,i)
+    hold on
+    plot(tt,squeeze(nanmean(chdata_neutral(ch(i),:,:),3)),'LineWidth',2);
+    plot(tt,squeeze(nanmean(chdata_trauma(ch(i),:,:),3)),'LineWidth',2)
+    vline(tt([1000 1300 1300+4004]),'k')
+    hline(0,'r')
+    set(gca,'FontSize',14)
+    title(channels{ch(i)});
+    sig_time = t_scores1(ch(i),:);
+    idx = find(sig_time~=0);
+    % idx = tt(idx);
+    % sigMask= idx(idx>=0);
+    sigDiff = diff([0 idx]);
+    segStart = find(sigDiff >1);
+    segEnd = [segStart(2:end)-1 ;
+
+    for ii = 1:length(segStart)
+        x1 = time(segStart(ii));
+        x2 = time(segEnd(ii));
+        plot([x1 x2], [-3 -3], 'g', 'LineWidth', 5);
+    end
+    
+end
+
+%
+% figure;
+% set(gcf,'Color','w')
+% chdata_trauma = chdata_trauma';
+% chdata_neutral = chdata_neutral';
+%
+% plot(nanmean(chdata_trauma,2),'k','LineWidth',1)
+% hold on
+% mb = sort(bootstrp(1000,@nanmean,chdata_trauma'));
+% plot(mb(25,:),'Color',[.5 .5 .5 .5])
+% plot(mb(975,:),'Color',[.5 .5 .5 .5])
+%
+%
+% plot(nanmean(chdata_neutral,2),'b','LineWidth',1)
+% hold on
+% mb = sort(bootstrp(1000,@nanmean,chdata_neutral'));
+% plot(mb(25,:),'Color',[.2 .5 .8 .5])
+% plot(mb(975,:),'Color',[.2 .5 .8 .5])
+%
+%
+% vline([1000 1300 1300+4004],'r')
+% hline(0,'r')
+% set(gca,'FontSize',14)
+% xlabel('Time (ms)')
+% ylabel('uV')
+% title('Occipital channels')
+% legend({'Trauma','','','Neutral','',''})
+% title('Frontal Channels 13 Subjects')
+%
+% % running t-tests
+% res=[];tval=[];
+% for i=1:size(chdata_trauma,1)
+%     a = chdata_trauma(i,:);
+%     b = chdata_neutral(i,:);
+%     [h p tb st]=ttest(a,b);
+%     tval(i) = st.tstat;
+%     if p<0.05
+%         res(i)=1;
+%     else
+%         res(i)=0;
+%     end
+% end
+% figure;stem(res)
+%
+% x = tinv(0.95,length(files)-1);
+% figure;plot(tval,'LineWidth',1)
+% axis tight
+% vline([1000 1300 1300+4004],'r')
+% hline(0,'r')
+% set(gca,'FontSize',14)
+% xlabel('Time (ms)')
+% ylabel('uV')
+% title('Occipital channels')
+% title('T-value Frontal channels')
+% set(gcf,'Color','w')
+% hline(x,'--r')
+
 
 
 %%
@@ -668,153 +1038,6 @@ ft_write_data(cfg.filename, signal, 'header',cfg,'dataformat', 'edf');
 
 
 
-%% ERP SNIPPET ANALYSES
-%  looping over subjects loading the data and looking at grand averaged ERPs
-
-% 
-% EEG = pop_autorej(EEG, 'nogui','on','threshold',300,'eegplot','on'); % automatic bad trial rejection
-%  bad_trials = find(EEG.reject.rejauto);% bad trials
-
-clc;clear
-close all
-
-% adding paths
-%addpath(genpath('C:\Users\nikic\Documents\MATLAB\Ana EEG\hdEEG_Trauma_PTSD\SAGA_Matlab\SAGA_interface'))
-%root_path = 'F:\DATA\EEG Data Anne Richards\STAR\STAR_Pilot_data-selected\Pilot18';
-%root_path='F:\DATA\EEG Data Anne Richards\STAR\Phase 2\Snippet_Datasets_Processed';
-addpath(genpath('/home/user/Documents/Repositories/STAR_Study_EEG/SAGA_Matlab/SAGA_interface'))
-addpath('/home/user/Documents/MATLAB/eeglab2023.1')
-%addpath(genpath('C:\Users\nikic\Documents\MATLAB\fieldtrip-20250114'))
-addpath('/home/user/Documents/MATLAB')
-root_path='/media/user/Data/Ana EEG/STAR/Phase 2/Snippet_Datasets_Processed';
-cd(root_path)
-eeglab
-
-files=findfiles('.set',root_path)';
-
-%Splitting into neutral and trauma snippets
-neutral_epochs= [1 3 5 7 8 11 14 17 19 21 23 24 27 29 30 33 34 37 39 40];
-idx_neutral = zeros(40,1);
-idx_neutral(neutral_epochs)=1;
-trauma_epochs = find(idx_neutral==0);
-idx_trauma = zeros(40,1);
-idx_trauma(trauma_epochs)=1;
-idx_trauma = logical(idx_trauma);
-idx_neutral = logical(idx_neutral);
-
-chdata_neutral=[];
-chdata_trauma=[];
-k=1;
-for i=1:length(files)
-
-
-    try
-        EEG = pop_loadset('filename',files{i});
-        eeglab redraw
-        file_loaded=true;
-    catch
-        file_loaded=false;
-    end
-
-    if file_loaded
-
-        % bad trial rejection
-        EEG = pop_autorej(EEG, 'nogui','on','threshold',200,'eegplot','on'); % automatic bad trial rejection
-        bad_trials = find(EEG.reject.rejauto);% bad trials
-        close
-
-        % Get Trauma ERPs
-        data=EEG.data;
-        data(:,:,bad_trials) = NaN;
-        chdata1=[];
-        %chdata1 = squeeze(cat(3,chdata1,data(6,:,idx_trauma),data(36,:,idx_trauma),data(37,:,idx_trauma)));
-        chdata1 = squeeze(cat(3,chdata1,data(28,:,idx_trauma),data(29,:,idx_trauma),data(30,:,idx_trauma),...
-            data(27,:,idx_trauma),data(54,:,idx_trauma),data(55,:,idx_trauma)));
-        %chdata1 = squeeze(cat(3,chdata1,data(15,:,idx_trauma),data(43,:,idx_trauma),data(44,:,idx_trauma),...
-        %     data(47,:,idx_trauma),data(40,:,idx_trauma)));
-
-        % ac1 = sum(abs(chdata1)>150);
-        % ac1 = find(ac1~=0);
-        % chdata1(:,ac1)=NaN;
-        chdata_trauma(k,:) = nanmean(chdata1,2);
-
-        % Get neutral ERPs
-        chdata2=[];
-        %chdata2 = squeeze(cat(3,chdata2,data(6,:,idx_neutral),data(36,:,idx_neutral),data(37,:,idx_neutral)));
-        chdata2 = squeeze(cat(3,chdata2,data(28,:,idx_neutral),data(29,:,idx_neutral),data(30,:,idx_neutral),...
-            data(27,:,idx_neutral),data(54,:,idx_neutral),data(55,:,idx_neutral)));
-        % chdata2 = squeeze(cat(3,chdata2,data(15,:,idx_neutral),data(43,:,idx_neutral),data(44,:,idx_neutral),...
-        %     data(47,:,idx_neutral),data(40,:,idx_neutral)));
-
-        % ac2 = sum(abs(chdata2)>150);
-        % ac2 = find(ac2~=0);
-        % chdata2(:,ac2)=NaN;
-        chdata_neutral(k,:) = nanmean(chdata2,2);
-
-
-        STUDY = []; CURRENTSTUDY = 0; ALLEEG = []; EEG=[]; CURRENTSET=[];
-        eeglab redraw
-        k=k+1;
-
-    end
-end
-
-
-figure;
-set(gcf,'Color','w')
-chdata_trauma = chdata_trauma';
-chdata_neutral = chdata_neutral';
-
-plot(nanmean(chdata_trauma,2),'k','LineWidth',1)
-hold on
-mb = sort(bootstrp(1000,@nanmean,chdata_trauma'));
-plot(mb(25,:),'Color',[.5 .5 .5 .5])
-plot(mb(975,:),'Color',[.5 .5 .5 .5])
-
-
-plot(nanmean(chdata_neutral,2),'b','LineWidth',1)
-hold on
-mb = sort(bootstrp(1000,@nanmean,chdata_neutral'));
-plot(mb(25,:),'Color',[.2 .5 .8 .5])
-plot(mb(975,:),'Color',[.2 .5 .8 .5])
-
-
-vline([1000 1300 1300+4004],'r')
-hline(0,'r')
-set(gca,'FontSize',14)
-xlabel('Time (ms)')
-ylabel('uV')
-title('Occipital channels')
-legend({'Trauma','','','Neutral','',''})
-title('Frontal Channels 13 Subjects')
-
-% running t-tests
-res=[];tval=[];
-for i=1:size(chdata_trauma,1)
-    a = chdata_trauma(i,:);
-    b = chdata_neutral(i,:);
-    [h p tb st]=ttest(a,b);
-    tval(i) = st.tstat;
-    if p<0.05
-        res(i)=1;
-    else
-        res(i)=0;
-    end
-end
-figure;stem(res)
-
-x = tinv(0.95,length(files)-1);
-figure;plot(tval,'LineWidth',1)
-axis tight
-vline([1000 1300 1300+4004],'r')
-hline(0,'r')
-set(gca,'FontSize',14)
-xlabel('Time (ms)')
-ylabel('uV')
-title('Occipital channels')
-title('T-value Frontal channels')
-set(gcf,'Color','w')
-hline(x,'--r')
 
 %% ANALYZING SLEEP DATA TO SEE IF LENGTH MATCHES UP
 
@@ -822,7 +1045,7 @@ hline(x,'--r')
 % the sleep data itself.
 % the data has been contralateral referenced to the mastoids
 % band pass b/w .3 to 35z
-% the last <30s samples is discarded. 
+% the last <30s samples is discarded.
 
 
 clc;clear
