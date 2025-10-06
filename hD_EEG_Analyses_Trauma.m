@@ -581,7 +581,7 @@ end
 % spatiotemporal cluster correction
 %addpath('C/home/user/Documents/Repositories/limo_tools/limo_tools')
 addpath(genpath('/home/user/Documents/Repositories/limo_tools/'))
-tfce_flag = false;
+tfce_flag = true;
 loop_iter=1000;
 t_scores=[];tboot=zeros(62,7000,loop_iter);
 p_scores=[];pboot=zeros(62,7000,loop_iter);
@@ -657,15 +657,12 @@ if tfce_flag
 
     % plot the significant channels
     a=tfce_score1;
-    aa=sum(a(:,3000:6000),2);
-    sig_ch_idx = find(aa>0);
-    sig_ch = zeros(numel(chMap),1);
-    sig_ch(sig_ch_idx)=1;
-    sig_ch_all(i,:) = sig_ch;
-    subplot(3,1,3);
-    imagesc(sig_ch(chMap))
-    title('Sig channels 0 to 3s')
-    sgtitle(ImaginedMvmt{i})
+    aa=sum(a(:,1000:6000),2);
+    aa=aa./max(aa);% normalize
+    subplot(3,1,3);    
+    topoplot((aa),EEG.chanlocs,'maplimits', [-1 1])
+    axis tight    
+    title('Relative Channel importance')    
     axis off
     set(gcf,'Color','w')
 
@@ -706,18 +703,22 @@ else
 end
 
 % make a movie
-v=VideoWriter('ERP_EvsN');
+v=VideoWriter('ERP_EvsN_TFCE');
+t_scores1=tfce_score1;
+t_scores1 = t_scores1./max(t_scores1(:));
 v.FrameRate=16;
 open(v)
 figure;
 M={};
 vmin = min(t_scores1(:));
 vmax = max(t_scores1(:));
-for i=750:3:size(t_scores1,2)
+for i=750:2:size(t_scores1,2)
     disp(i)
     tmp = t_scores1(:,i);
-    topoplot(tmp,EEG.chanlocs, 'maplimits', [-6 6],...
-        'numcontour', 0);    
+    % topoplot(tmp,EEG.chanlocs, 'maplimits', [-6 6],...
+    %     'numcontour', 0);    
+    topoplot(tmp,EEG.chanlocs, 'maplimits', [-1 1],...
+        'numcontour', 0);  
     colorbar
     axis tight
     sgtitle([num2str(tt(i)) ' Sec'])
