@@ -26,7 +26,7 @@ elseif isunix
 end
 
 % go to the specific subject's folder
-subj_name = ['Participant ' '24039'];
+subj_name = ['Participant ' '24038'];
 root_path = fullfile('/media/user/Data/Ana EEG/STAR/Phase 2',subj_name);
 cd(root_path)
 
@@ -54,10 +54,10 @@ stim = data(79,:);
 stem(stim)
 
 % remove unncesary triggers at the end
-[aa bb]=ginput;
-aa=round(aa);
-vline(aa,'r')
-stim(aa:end)=0;
+% [aa bb]=ginput;
+% aa=round(aa);
+% vline(aa,'r')
+% stim(aa:end)=0;
 
 % extract the stim onsets from the triggers
 d = [0 diff(stim)];
@@ -164,7 +164,7 @@ EEG = pop_scrls_regression( EEG, [65  66], 2, 0.9999, 0.01, 32, []);
 X=EEG.data;Xbkup=EEG.data;
 indata = X(1:64,:);
 opt.refdata = X(65:66,:);
-opt.M = 3;
+opt.M = 2; % filter order
 opt.lambda = 0.9999;
 opt.sigmal = 0.01;
 opt.prec = 32;
@@ -180,6 +180,7 @@ data_ac=EEG.data;
 figure;plot(data_ac(34,:))
 hold on
 plot(Xbkup(34,:))
+legend({'AC','Original'})
 
 %% correct the stim signal
 
@@ -202,7 +203,7 @@ if sum(stim_ac==tmp)/length(tmp) ==1
 
     % examine bad channels
     figure;
-    for i=33:36
+    for i=32:36
         plot(data_ac(i,:));
         title(num2str(i))
         ylim([-500 500])
@@ -217,7 +218,7 @@ end
 
 %% remove bad channel and interpolate missing values, if necessary
 %bad_ch=12;
-bad_ch=[33 36]-2; % since we are removing M1 and M2
+bad_ch=[36]-2; % since we are removing M1 and M2
 if ~isempty(bad_ch)
     EEG.data(bad_ch+2,:)=0;
     eeglab redraw
