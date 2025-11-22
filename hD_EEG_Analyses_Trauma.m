@@ -26,8 +26,9 @@ elseif isunix
 end
 
 % go to the specific subject's folder
-subj_name = ['Participant ' '24038'];
-root_path = fullfile('/media/user/Data/Ana EEG/STAR/Phase 2',subj_name);
+subj_name = ['Participant ' '24028'];
+%root_path = fullfile('/media/user/Data/Ana EEG/STAR/Phase 2',subj_name);
+root_path=fullfile('F:\DATA\EEG Data Anne Richards\STAR\Phase 2',subj_name);
 cd(root_path)
 
 % starting eeglab
