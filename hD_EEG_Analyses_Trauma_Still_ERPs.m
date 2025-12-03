@@ -4,6 +4,7 @@ clc;clear
 close all
 
 % adding paths
+if ispc
 addpath(genpath('C:\Users\nikic\Documents\MATLAB\Ana EEG\hdEEG_Trauma_PTSD\SAGA_Matlab\SAGA_interface'))
 %root_path = 'F:\DATA\EEG Data Anne Richards\STAR\STAR_Pilot_data-selected\Pilot18';
 root_path='F:\DATA\EEG Data Anne Richards\STAR\Phase 2\Participant 24014';
@@ -11,6 +12,12 @@ cd(root_path)
 addpath('C:\Users\nikic\Documents\MATLAB\eeglab2023.1')
 %addpath(genpath('C:\Users\nikic\Documents\MATLAB\fieldtrip-20250114'))
 addpath('C:\Users\nikic\Documents\MATLAB')
+else
+    root_path='/media/user/Data/Ana EEG/STAR/Phase 2/Participant 24014';
+    addpath('/home/user/Documents/MATLAB/eeglab2023.1');
+    addpath(genpath('/home/user/Documents/MATLAB/Ana EEG/hdEEG_Trauma_PTSD/SAGA_Matlab/SAGA_interface/'))
+    cd(root_path);
+end
 
 % starting eeglab
 eeglab
@@ -26,28 +33,35 @@ eeglab
 eeglab redraw
 
 %% GETTING STIM AND FILTERING, referencing THE DATA
-%load into matlab workspace
+
 data=EEG.data;
 
 % plot the stim trigger -> the channel differs by recording?
 figure;
 stim = data(83,:);
+%stim = data(79,:);
 stem(stim)
+
+% remove unncesary triggers at the end
+% [aa bb]=ginput;
+% aa=round(aa);
+% vline(aa,'r')
+% stim(aa:end)=0;
 
 % extract the stim onsets from the triggers
 d = [0 diff(stim)];
 d1 = (find(d==1)); % these are all the transitions from 0 to 1
-
+d1 = [d1 d1(end)+600];
 % identifying stim onsets
 stim_onsets=[];
-done=false;k=1;iter=0;kcals=[];
+done=false;k=1;
 while ~done
 
     % now go forward till you have atleast 500 consecutive zeros.
     done1=false;
     init_k = k;
-    while ~done1 
-        if d1(k+1)-d1(k) < 500 && k<(length(d1)-1)
+    while ~done1
+        if (d1(k+1)-d1(k) < 500) 
             k=k+1;
         else
             done1=true;
@@ -60,14 +74,13 @@ while ~done
     if k >= length(d1)
         done = true;
     end
-    iter=iter+1;
 
 end
-stim_onsets = stim_onsets(1:3:end); % taking into account just the two pulse flashes
+stim_onsets = stim_onsets(2:3:end); % taking into account just the two pulse flashes
 
 % now taking into account that the stim onsets have a 40ms delay due to
 % photosensor settings
-stim_onsets = stim_onsets-38;
+stim_onsets = stim_onsets-3; % look at the screenshots from Iryne
 figure;stem(stim)
 vline(stim_onsets,'r')
 disp(['number of detected stim is ' num2str(length(stim_onsets))]);
@@ -77,6 +90,60 @@ tmp = zeros(size(stim));
 tmp(stim_onsets)=1;
 figure;stem(tmp)
 data(83,:) = tmp;
+%data(79,:) = tmp;
+
+%%%%% OLD
+%load into matlab workspace
+% data=EEG.data;
+% 
+% % plot the stim trigger -> the channel differs by recording?
+% figure;
+% stim = data(83,:);
+% stem(stim)
+% 
+% % extract the stim onsets from the triggers
+% d = [0 diff(stim)];
+% d1 = (find(d==1)); % these are all the transitions from 0 to 1
+% 
+% % identifying stim onsets
+% stim_onsets=[];
+% done=false;k=1;iter=0;kcals=[];
+% while ~done
+% 
+%     % now go forward till you have atleast 500 consecutive zeros.
+%     done1=false;
+%     init_k = k;
+%     while ~done1 
+%         if d1(k+1)-d1(k) < 500 && k<(length(d1)-1)
+%             k=k+1;
+%         else
+%             done1=true;
+%             stim_onsets = [stim_onsets d1(init_k)];
+%             k=k+1;
+%         end
+%     end
+% 
+%     % chk if cycled through all indices
+%     if k >= length(d1)
+%         done = true;
+%     end
+%     iter=iter+1;
+% 
+% end
+% stim_onsets = stim_onsets(1:3:end); % taking into account just the two pulse flashes
+% 
+% % now taking into account that the stim onsets have a 40ms delay due to
+% % photosensor settings
+% stim_onsets = stim_onsets-38;
+% figure;stem(stim)
+% vline(stim_onsets,'r')
+% disp(['number of detected stim is ' num2str(length(stim_onsets))]);
+% 
+% % rewrite the stim channel
+% tmp = zeros(size(stim));
+% tmp(stim_onsets)=1;
+% figure;stem(tmp)
+% data(83,:) = tmp;
 
 %% Filter the data ...ZERO PADD TO ACCOUNT FOR FILTERING ARTIFACTS
 data=double(data);
