@@ -378,6 +378,10 @@ chdata2 = squeeze(cat(3,chdata2,data(28,:,idx_neutral),data(29,:,idx_neutral),da
 % ac2 = find(ac2~=0);
 % chdata2(:,ac2)=NaN;
 
+
+chdata2 = chdata2.^2;
+chdata1 = chdata1.^2;
+
 figure;
 set(gcf,'Color','w')
 
@@ -422,6 +426,9 @@ chdata2 = squeeze(cat(3,chdata2,data(15,:,idx_neutral),data(43,:,idx_neutral),da
 figure;
 set(gcf,'Color','w')
 
+chdata2 = chdata2.^2;
+chdata1 = chdata1.^2;
+
 plot(nanmean(chdata1,2),'k','LineWidth',1)
 hold on
 mb = sort(bootstrp(1000,@nanmean,chdata1'));
@@ -456,6 +463,9 @@ chdata2=[];
 chdata2 = squeeze(cat(3,chdata2,data(6,:,idx_neutral),data(36,:,idx_neutral),data(37,:,idx_neutral)));
 figure;
 set(gcf,'Color','w')
+
+chdata2 = chdata2.^2;
+chdata1 = chdata1.^2;
 
 plot(nanmean(chdata1,2),'k','LineWidth',1)
 hold on
