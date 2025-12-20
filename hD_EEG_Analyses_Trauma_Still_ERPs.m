@@ -76,7 +76,8 @@ while ~done
     end
 
 end
-stim_onsets = stim_onsets(2:3:end); % taking into account just the two pulse flashes
+%stim_onsets = stim_onsets(2:3:end); % taking into account just the two pulse flashes
+stim_onsets = stim_onsets(1:3:end); % when the snapshot appeared
 
 % now taking into account that the stim onsets have a 40ms delay due to
 % photosensor settings
@@ -199,8 +200,8 @@ eeglab redraw
 %% EOG GUI BASED AC
 
 % perform EOG artifact correct using channels 65 and 66
-EEG = pop_scrls_regression( EEG, [65  66], 2, 0.9999, 0.01, 32, []);
-[ALLEEG EEG CURRENTSET] = pop_newset(ALLEEG, EEG, 2,'overwrite','on','gui','off');
+%EEG = pop_scrls_regression( EEG, [65  66], 2, 0.9999, 0.01, 32, []);
+%[ALLEEG EEG CURRENTSET] = pop_newset(ALLEEG, EEG, 2,'overwrite','on','gui','off');
 
 %% EOG NON GUI BASED AC
 
@@ -270,15 +271,16 @@ EEG = pop_select( EEG, 'rmchannel',{'M1','M2','SpO2','PLETH','HRate','Stat','TRI
 [ALLEEG EEG CURRENTSET] = pop_newset(ALLEEG, EEG, 2,'overwrite','on','gui','off');
 eeglab redraw
 
-data=EEG.data;
-% examine bad channels
-figure;
-for i=1:60
-    plot(data(i,:));
-    title(num2str(i))
-    ylim([-500 500])
-    waitforbuttonpress;
-end
+% data=EEG.data;
+% % examine bad channels
+% figure;
+% for i=1:60
+%     plot(data(i,:));
+%     title(num2str(i))
+%     ylim([-500 500])
+%     waitforbuttonpress;
+% end
+
 
 bad_ch = [];
 if ~isempty(bad_ch)    
@@ -304,7 +306,7 @@ end
 EEG = pop_chanevent(EEG, 63,'edge','leading','edgelen',0,'delchan','off');
 [ALLEEG, EEG, CURRENTSET] = eeg_store(ALLEEG, EEG, CURRENTSET);
 EEG = eeg_checkset( EEG );
-EEG = pop_epoch( EEG, {  'chan63'  }, [-1 8], 'newname', 'Data epoched', 'epochinfo', 'yes');
+EEG = pop_epoch( EEG, {  'chan63'  }, [-1 13], 'newname', 'Data epoched', 'epochinfo', 'yes');
 [ALLEEG EEG CURRENTSET] = pop_newset(ALLEEG, EEG, 2,'overwrite','on','gui','off');
 EEG = eeg_checkset( EEG );
 EEG = pop_rmbase( EEG, [-1000 0] ,[]);
@@ -379,8 +381,8 @@ chdata2 = squeeze(cat(3,chdata2,data(28,:,idx_neutral),data(29,:,idx_neutral),da
 % chdata2(:,ac2)=NaN;
 
 
-chdata2 = chdata2.^2;
-chdata1 = chdata1.^2;
+chdata2 = chdata2.^1;
+chdata1 = chdata1.^1;
 
 figure;
 set(gcf,'Color','w')
@@ -399,14 +401,14 @@ plot(mb(25,:),'Color',[.2 .5 .8 .5])
 plot(mb(975,:),'Color',[.2 .5 .8 .5])
 
 
-vline([1000 3000],'r')
+vline([1000 5000 6000 8000],'r')
 hline(0,'r')
 set(gca,'FontSize',14)
 xlabel('Time (ms)')
 ylabel('uV')
 title('Occipital channels')
 legend({'Trauma','','','Neutral','',''})
-title('Subject 204022 Occipital Channels')
+title('Subject 24011 Occipital Channels')
 
 
 data=EEG.data;
@@ -426,8 +428,8 @@ chdata2 = squeeze(cat(3,chdata2,data(15,:,idx_neutral),data(43,:,idx_neutral),da
 figure;
 set(gcf,'Color','w')
 
-chdata2 = chdata2.^2;
-chdata1 = chdata1.^2;
+chdata2 = chdata2.^1;
+chdata1 = chdata1.^1;
 
 plot(nanmean(chdata1,2),'k','LineWidth',1)
 hold on
@@ -443,7 +445,8 @@ plot(mb(25,:),'Color',[.2 .5 .8 .5])
 plot(mb(975,:),'Color',[.2 .5 .8 .5])
 
 
-vline([1000 3000],'r')
+
+vline([1000 5000 6000 8000],'r')
 hline(0,'r')
 set(gca,'FontSize',14)
 xlabel('Time (ms)')
@@ -464,8 +467,8 @@ chdata2 = squeeze(cat(3,chdata2,data(6,:,idx_neutral),data(36,:,idx_neutral),dat
 figure;
 set(gcf,'Color','w')
 
-chdata2 = chdata2.^2;
-chdata1 = chdata1.^2;
+chdata2 = chdata2.^1;
+chdata1 = chdata1.^1;
 
 plot(nanmean(chdata1,2),'k','LineWidth',1)
 hold on
@@ -481,7 +484,8 @@ plot(mb(25,:),'Color',[.2 .5 .8 .5])
 plot(mb(975,:),'Color',[.2 .5 .8 .5])
 
 
-vline([1000 3000],'r')
+
+vline([1000 5000 6000 8000],'r')
 hline(0,'r')
 set(gca,'FontSize',14)
 xlabel('Time (ms)')
