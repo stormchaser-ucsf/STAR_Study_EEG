@@ -7,13 +7,13 @@ close all
 if ispc
 addpath(genpath('C:\Users\nikic\Documents\MATLAB\Ana EEG\hdEEG_Trauma_PTSD\SAGA_Matlab\SAGA_interface'))
 %root_path = 'F:\DATA\EEG Data Anne Richards\STAR\STAR_Pilot_data-selected\Pilot18';
-root_path='F:\DATA\EEG Data Anne Richards\STAR\Phase 2\Participant 24011';
+root_path='F:\DATA\EEG Data Anne Richards\STAR\Phase 2\Participant 24013';
 cd(root_path)
 addpath('C:\Users\nikic\Documents\MATLAB\eeglab2023.1')
 %addpath(genpath('C:\Users\nikic\Documents\MATLAB\fieldtrip-20250114'))
 addpath('C:\Users\nikic\Documents\MATLAB')
 else
-    root_path='/media/user/Data/Ana EEG/STAR/Phase 2/Participant 24011';
+    root_path='/media/user/Data/Ana EEG/STAR/Phase 2/Participant 24013';
     addpath('/home/user/Documents/MATLAB/eeglab2023.1');
     addpath(genpath('/home/user/Documents/MATLAB/Ana EEG/hdEEG_Trauma_PTSD/SAGA_Matlab/SAGA_interface/'))
     cd(root_path);
@@ -271,18 +271,18 @@ EEG = pop_select( EEG, 'rmchannel',{'M1','M2','SpO2','PLETH','HRate','Stat','TRI
 [ALLEEG EEG CURRENTSET] = pop_newset(ALLEEG, EEG, 2,'overwrite','on','gui','off');
 eeglab redraw
 
-% data=EEG.data;
-% % examine bad channels
-% figure;
-% for i=1:60
-%     plot(data(i,:));
-%     title(num2str(i))
-%     ylim([-500 500])
-%     waitforbuttonpress;
-% end
+data=EEG.data;
+% examine bad channels
+figure;
+for i=1:60
+    plot(data(i,:));
+    title(num2str(i))
+    ylim([-500 500])
+    waitforbuttonpress;
+end
 
 
-bad_ch = [];
+bad_ch = [12];
 if ~isempty(bad_ch)    
     EEG.data(bad_ch,:)=0;
     [ALLEEG EEG CURRENTSET] = pop_newset(ALLEEG, EEG, 2,'overwrite','on','gui','off');
@@ -453,7 +453,7 @@ xlabel('Time (ms)')
 ylabel('uV')
 title('Occipital channels')
 legend({'Trauma','','','Neutral','',''})
-title('Subject 204022 Central Channels')
+title('Subject 24012 Central Channels')
 
 %% ERPs over frontal
 
