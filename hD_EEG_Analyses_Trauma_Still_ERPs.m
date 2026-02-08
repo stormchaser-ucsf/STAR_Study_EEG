@@ -13,7 +13,7 @@ addpath('C:\Users\nikic\Documents\MATLAB\eeglab2023.1')
 %addpath(genpath('C:\Users\nikic\Documents\MATLAB\fieldtrip-20250114'))
 addpath('C:\Users\nikic\Documents\MATLAB')
 else
-    root_path='/media/user/Data/Ana EEG/STAR/Phase 2/Participant 24013';
+    root_path='/media/user/Data/Ana EEG/STAR/Phase 2/Participant 24039';
     addpath('/home/user/Documents/MATLAB/eeglab2023.1');
     addpath(genpath('/home/user/Documents/MATLAB/Ana EEG/hdEEG_Trauma_PTSD/SAGA_Matlab/SAGA_interface/'))
     cd(root_path);
@@ -38,8 +38,8 @@ data=EEG.data;
 
 % plot the stim trigger -> the channel differs by recording?
 figure;
-stim = data(83,:);
-%stim = data(79,:);
+%stim = data(83,:);
+stim = data(79,:);
 plot(stim)
 
 % remove unncesary triggers at the end
@@ -81,7 +81,7 @@ stim_onsets = stim_onsets(1:3:end); % when the snapshot appeared
 
 % now taking into account that the stim onsets have a 40ms delay due to
 % photosensor settings
-stim_onsets = stim_onsets-38; % look at the screenshots from Iryne
+stim_onsets = stim_onsets-3; % look at the screenshots from Iryne
 figure;stem(stim)
 vline(stim_onsets,'r')
 disp(['number of detected stim is ' num2str(length(stim_onsets))]);
@@ -90,8 +90,8 @@ disp(['number of detected stim is ' num2str(length(stim_onsets))]);
 tmp = zeros(size(stim));
 tmp(stim_onsets)=1;
 figure;stem(tmp)
-data(83,:) = tmp;
-%data(79,:) = tmp;
+%data(83,:) = tmp;
+data(79,:) = tmp;
 
 %%%%% OLD
 %load into matlab workspace
@@ -282,7 +282,7 @@ for i=1:60
 end
 
 
-bad_ch = [12];
+bad_ch = [44];
 if ~isempty(bad_ch)    
     EEG.data(bad_ch,:)=0;
     [ALLEEG EEG CURRENTSET] = pop_newset(ALLEEG, EEG, 2,'overwrite','on','gui','off');
@@ -408,7 +408,7 @@ xlabel('Time (ms)')
 ylabel('uV')
 title('Occipital channels')
 legend({'Trauma','','','Neutral','',''})
-title('Subject 24011 Occipital Channels')
+title('Subject 24034 Occipital Channels')
 
 
 data=EEG.data;
@@ -547,14 +547,14 @@ addpath(genpath('/home/user/Documents/Repositories/STAR_Study_EEG/SAGA_Matlab/SA
 addpath('/home/user/Documents/MATLAB/eeglab2023.1')
 %addpath(genpath('C:\Users\nikic\Documents\MATLAB\fieldtrip-20250114'))
 addpath('/home/user/Documents/MATLAB')
-root_path='/media/user/Data/Ana EEG/STAR/Phase 2/Snippet_Datasets_Processed';
+root_path='/media/user/Data/Ana EEG/STAR/Phase 2/Imagine Part 2 Preprocessed/';
 cd(root_path)
 eeglab
 
 files=findfiles('.set',root_path)';
 
 %Splitting into neutral and trauma snippets
-neutral_epochs= [1 3 5 7 8 11 14 17 19 21 23 24 27 29 30 33 34 37 39 40];
+neutral_epochs= [2 4 6 7 9 11 13 14 16 18 19 22 23 25 27 30 31 33 35 38];
 idx_neutral = zeros(40,1);
 idx_neutral(neutral_epochs)=1;
 trauma_epochs = find(idx_neutral==0);
@@ -654,10 +654,10 @@ end
 % spatiotemporal cluster correction
 %addpath('C/home/user/Documents/Repositories/limo_tools/limo_tools')
 addpath(genpath('/home/user/Documents/Repositories/limo_tools/'))
-tfce_flag = true;
+tfce_flag = false;
 loop_iter=1000;
-t_scores=[];tboot=zeros(62,7000,loop_iter);
-p_scores=[];pboot=zeros(62,7000,loop_iter);
+t_scores=[];tboot=zeros(62,size(chdata_neutral,2),loop_iter);
+p_scores=[];pboot=zeros(62,size(chdata_neutral,2),loop_iter);
 
 parfor ch=1:size(chdata_neutral,1)
     tmp_neutral = squeeze(chdata_neutral(ch,:,:));
@@ -698,7 +698,8 @@ parfor ch=1:size(chdata_neutral,1)
 end
 
 % get neighborhood distance matrix
-neighb = limo_neighbourdist(EEG, 0.40);
+% load an eeg dataset
+neighb = limo_neighbourdist(EEG, 0.50);
 
 
 if tfce_flag
@@ -747,7 +748,7 @@ else
         limo_clustering((t_scores.^2),p_scores,...
         (tboot.^2),pboot,LIMO,2,0.05,0);
     figure;subplot(3,1,1)
-    tt=linspace(-1,6,size(t_scores,2));
+    tt=linspace(-1,13,size(t_scores,2));
     imagesc(tt,1:62,t_scores);
     title('Uncorrected for multiple comparisons')
     ylabel('Channels')
@@ -761,7 +762,8 @@ else
     xlabel('Time')
 
     a=mask;
-    aa=sum(a(:,3000:6000),2);
+    chMap=1:62;
+    aa=sum(a(:,1000:12000),2);
     sig_ch_idx = find(aa>0);
     sig_ch = zeros(numel(chMap),1);
     sig_ch(sig_ch_idx)=1;
@@ -813,8 +815,12 @@ for i=1:length(ch)
     hold on
     plot(tt,squeeze(nanmean(chdata_neutral(ch(i),:,:),3)),'LineWidth',2);
     plot(tt,squeeze(nanmean(chdata_trauma(ch(i),:,:),3)),'LineWidth',2)
-    vline(tt([1000 1300 1300+4004]),'k')
-    hline(0,'r')
+
+    if i==2
+        ylim([-11 8])
+    end
+    xlim([-1 13])
+
     set(gca,'FontSize',14)
     title(channels{ch(i)});
     sig_time = t_scores1(ch(i),:);    
@@ -837,10 +843,10 @@ for i=1:length(ch)
         end
     end
 
-    if i==2
-        ylim([-11 8])
-    end
-    %axis tight
+    vline(tt([1000 5000 6000 8000]),'k')
+    hline(0,'r')
+
+
 end
 
 %
