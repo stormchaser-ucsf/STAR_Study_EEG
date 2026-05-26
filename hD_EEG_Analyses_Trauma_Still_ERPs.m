@@ -651,6 +651,7 @@ for i=1:length(files)
 end
 
 
+
 % spatiotemporal cluster correction
 %addpath('C/home/user/Documents/Repositories/limo_tools/limo_tools')
 addpath(genpath('/home/user/Documents/Repositories/limo_tools/'))
@@ -658,7 +659,7 @@ tfce_flag = false;
 loop_iter=1000;
 t_scores=[];tboot=zeros(62,size(chdata_neutral,2),loop_iter);
 p_scores=[];pboot=zeros(62,size(chdata_neutral,2),loop_iter);
-
+parpool('threads')
 parfor ch=1:size(chdata_neutral,1)
     tmp_neutral = squeeze(chdata_neutral(ch,:,:));
     tmp_trauma = squeeze(chdata_trauma(ch,:,:));
@@ -697,9 +698,10 @@ parfor ch=1:size(chdata_neutral,1)
     end
 end
 
+delete(gcp)
 % get neighborhood distance matrix
 % load an eeg dataset
-neighb = limo_neighbourdist(EEG, 0.50);
+neighb = limo_neighbourdist(EEG, 0.40);
 
 
 if tfce_flag
@@ -764,17 +766,28 @@ else
     a=mask;
     chMap=1:62;
     aa=sum(a(:,1000:12000),2);
-    sig_ch_idx = find(aa>0);
-    sig_ch = zeros(numel(chMap),1);
-    sig_ch(sig_ch_idx)=1;
-    sig_ch_all(i,:) = sig_ch;
+    aa=aa./max(aa);% normalize
     subplot(3,1,3);
-    imagesc(sig_ch(chMap))
-    title('Sig channels 0 to 3s')
-    sgtitle(ImaginedMvmt{i})
+    topoplot((aa),EEG.chanlocs,'maplimits', [-1 1])
+    axis tight
+    title('Relative Channel importance')
     axis off
     set(gcf,'Color','w')
-    colorbar
+
+
+
+    %%% no idea what is for
+    % sig_ch_idx = find(aa>0);
+    % sig_ch = zeros(numel(chMap),1);
+    % sig_ch(sig_ch_idx)=1;
+    % sig_ch_all(i,:) = sig_ch;
+    % subplot(3,1,3);
+    % imagesc(sig_ch(chMap))
+    % title('Sig channels 0 to 3s')
+    % %sgtitle(ImaginedMvmt{i})
+    % axis off
+    % set(gcf,'Color','w')
+    % colorbar
 end
 
 % make a movie
@@ -848,6 +861,18 @@ for i=1:length(ch)
 
 
 end
+
+
+figure;
+xx=squeeze(nanmean(chdata_neutral(ch(i),:,:),3)) - ...
+    squeeze(nanmean(chdata_trauma(ch(i),:,:),3));
+
+plot(tt,xx,'LineWidth',2);
+vline(tt([1000 5000 6000 8000]),'k')
+    hline(0,'r')
+
+    
+
 
 %
 % figure;

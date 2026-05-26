@@ -583,7 +583,7 @@ end
 % spatiotemporal cluster correction
 %addpath('C/home/user/Documents/Repositories/limo_tools/limo_tools')
 addpath(genpath('/home/user/Documents/Repositories/limo_tools/'))
-tfce_flag = true;
+tfce_flag = false;
 loop_iter=1000;
 t_scores=[];tboot=zeros(62,7000,loop_iter);
 p_scores=[];pboot=zeros(62,7000,loop_iter);
@@ -629,6 +629,7 @@ end
 % get neighborhood distance matrix
 neighb = limo_neighbourdist(EEG, 0.40);
 
+chMap=1:62;
 
 if tfce_flag
     E=1;H=2;dh=0.2;
@@ -691,17 +692,28 @@ else
 
     a=mask;
     aa=sum(a(:,3000:6000),2);
-    sig_ch_idx = find(aa>0);
-    sig_ch = zeros(numel(chMap),1);
-    sig_ch(sig_ch_idx)=1;
-    sig_ch_all(i,:) = sig_ch;
+    aa=aa./max(aa);% normalize
     subplot(3,1,3);
-    imagesc(sig_ch(chMap))
-    title('Sig channels 0 to 3s')
-    sgtitle(ImaginedMvmt{i})
+    topoplot((aa),EEG.chanlocs,'maplimits', [-1 1])
+    axis tight
+    title('Relative Channel importance')
     axis off
     set(gcf,'Color','w')
-    colorbar
+
+
+
+    %%% no idea what this is for 
+    % sig_ch_idx = find(aa>0);
+    % sig_ch = zeros(numel(chMap),1);
+    % sig_ch(sig_ch_idx)=1;
+    % sig_ch_all(i,:) = sig_ch;
+    % subplot(3,1,3);
+    % imagesc(sig_ch(chMap))    
+    % title('Sig channels 0 to 3s')
+    % %sgtitle(ImaginedMvmt{i})
+    % axis off
+    % set(gcf,'Color','w')
+    % colorbar
 end
 
 % make a movie
