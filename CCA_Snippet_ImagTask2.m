@@ -14,6 +14,7 @@ if ispc
     root_path='F:\DATA\EEG Data Anne Richards\STAR\Phase 2\Snippet_Datasets_Processed';
 else
     addpath(genpath('/home/user/Documents/Repositories/STAR_Study_EEG/SAGA_Matlab/SAGA_interface'))
+    addpath(genpath('/home/user/Documents/Repositories/STAR_Study_EEG'))
     addpath('/home/user/Documents/MATLAB/eeglab2023.1')
     %addpath(genpath('C:\Users\nikic\Documents\MATLAB\fieldtrip-20250114'))
     addpath('/home/user/Documents/MATLAB')
@@ -130,8 +131,32 @@ chdata_neutral_imag = chdata_neutral;
 chdata_trauma_imag = chdata_trauma;
 subj_loaded_imag=subj_loaded;
 
+% load some dataset into eeglab
 
-% now getting data from snippet viewing
+do_stats_and_plot_imag(chdata_neutral_imag,chdata_trauma_imag,EEG);
+
+% some time frequency decomposition
+x = squeeze(nanmean(chdata_trauma(19,:,:),3));
+[pxx, f] = pwelch(x(1e3:5e3), 512, 256, 1024, EEG.srate);
+[pxx1, f1] = pwelch(x(8e3:13e3), 512, 256, 1024, EEG.srate);
+figure;
+hold on
+plot(f,log(pxx))
+plot(f1,log(pxx1))
+xlim([0 50])
+
+x = squeeze(nanmean(chdata_trauma(19,:,:),3)) - ...
+    squeeze(nanmean(chdata_neutral(19,:,:),3));
+[pxx, f] = pwelch(x(1e3:5e3), 512, 256, 1024, EEG.srate);
+[pxx1, f1] = pwelch(x(8e3:13e3), 512, 256, 1024, EEG.srate);
+figure;
+hold on
+plot(f,log(pxx))
+plot(f1,log(pxx1))
+xlim([0 50])
+legend({'open','closed'})
+
+%%%%% now getting data from snippet viewing
 root_path='/media/user/Data/Ana EEG/STAR/Phase 2/Snippet_Datasets_Processed';
 files=findfiles('.set',root_path)';
 
@@ -143,7 +168,7 @@ for i=1:length(files)
             files1=[files1;files(i)];
             break
         end
-    end    
+    end
 end
 files=files1;
 
@@ -246,7 +271,119 @@ for i=1:length(files)
     end
 end
 
-%% CCA
-% for snippet, ERP is from 300ms to 4000ms post image presentation
+do_stats_and_plot(chdata_neutral,chdata_trauma,EEG);
 
-% have to find equivalent for the img task
+
+% some time frequency decomposition
+x = squeeze(nanmean(chdata_trauma(27,:,:),3));
+x1 = squeeze(nanmean(chdata_neutral(27,:,:),3));
+[pxx, f] = pwelch(x(2e3:5e3), 512, 256, 1024, EEG.srate);
+[pxx1, f1] = pwelch(x1(2e3:5e3), 512, 256, 1024, EEG.srate);
+figure;
+hold on
+plot(f,log(pxx))
+plot(f1,log(pxx1))
+legend({'Trauma','Neutral'})
+xlim([0 50])
+
+x = squeeze(nanmean(chdata_trauma(19,:,:),3)) - ...
+    squeeze(nanmean(chdata_neutral(19,:,:),3));
+[pxx, f] = pwelch(x(2e3:5e3), 512, 256, 1024, EEG.srate);
+figure;
+hold on
+plot(f,log(pxx))
+xlim([0 50])
+
+
+
+%% CCA
+
+Fs=1e3;
+bpFilt = designfilt('lowpassiir', 'FilterOrder', 4, ...
+    'HalfPowerFrequency', 7, 'SampleRate', Fs);
+
+res=[];
+for i=1:size(chdata_trauma,3) %leave on subject out
+    test_idx=i;
+    aa=ones(22,1);
+    aa(test_idx)=0;
+    train_idx = find(aa==1);
+    %train_idx=[1:14 16:22];
+    %test_idx=15;
+    ch_idx = [14 43 15 44 16 46 19 47 20 48 23 50 51 24 25 53:56 27];
+
+    idx_snippet = 2e3:5e3;
+    idx_imag = 8.5e3:11.5e3;
+
+    snippet = chdata_trauma - chdata_neutral;
+    Xa = snippet(ch_idx,idx_snippet,train_idx);
+    %
+    % for i=1:size(Xa,3)
+    %     temp = squeeze(Xa(:,:,i));
+    %     temp = temp-mean(temp);
+    %     Xa(:,:,i)=temp;
+    % end
+    Xa= Xa(:,:);
+    Xa=Xa';
+    Xa= filtfilt(bpFilt,Xa);
+
+
+
+    Xa_test = snippet(ch_idx,idx_snippet,test_idx);
+    Xa_test = Xa_test';
+    Xa_test= filtfilt(bpFilt,Xa_test);
+
+    imag_data = chdata_trauma_imag - chdata_neutral_imag;
+    Xb = imag_data(ch_idx,idx_imag,train_idx);
+    %
+    % for i=1:size(Xb,3)
+    %     temp = squeeze(Xb(:,:,i));
+    %     temp = temp-mean(temp);
+    %     Xb(:,:,i)=temp;
+    % end
+
+    Xb= Xb(:,:);
+    Xb=Xb';
+    Xb= filtfilt(bpFilt,Xb);
+
+    Xb_test = imag_data(ch_idx,idx_imag,test_idx);
+    Xb_test = Xb_test';
+    Xb_test= filtfilt(bpFilt,Xb_test);
+
+    [Wa,Wb,S,Za,Zb] = cca(Xa,Xb);
+
+
+    Za_cv = (Xa_test - mean(Xa_test)) * Wa;
+    Zb_cv = (Xb_test - mean(Xb_test)) * Wb;
+
+
+    figure;
+    hold on
+    plot(Za_cv(:,2))
+    plot(Zb_cv(:,2))
+    corrcoef(Za_cv(:,2),Zb_cv(:,2))
+
+    %figure;topoplot(abs(Wb(:,1)),EEG.chanlocs)
+
+    c=[];
+    for i=1:size(Za_cv,2)
+        x= corrcoef(Za_cv(:,i),Zb_cv(:,i));
+        c(i) = x(1,2);
+    end
+    figure;
+    plot(c)
+    res=[res;c];
+
+    [aa,bb]=max(c)
+    figure;
+    hold on
+    plot(Za_cv(:,bb))
+    plot(Zb_cv(:,bb))
+    corrcoef(Za_cv(:,bb),Zb_cv(:,bb))
+
+    close all
+
+
+end
+
+figure;plot(mean(res,1))

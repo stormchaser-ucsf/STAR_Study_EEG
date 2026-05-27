@@ -587,7 +587,7 @@ tfce_flag = false;
 loop_iter=1000;
 t_scores=[];tboot=zeros(62,7000,loop_iter);
 p_scores=[];pboot=zeros(62,7000,loop_iter);
-
+parpool('threads')
 parfor ch=1:size(chdata_neutral,1)
     tmp_neutral = squeeze(chdata_neutral(ch,:,:));
     tmp_trauma = squeeze(chdata_trauma(ch,:,:));
@@ -628,7 +628,7 @@ end
 
 % get neighborhood distance matrix
 neighb = limo_neighbourdist(EEG, 0.40);
-
+delete(gcp)
 chMap=1:62;
 
 if tfce_flag
