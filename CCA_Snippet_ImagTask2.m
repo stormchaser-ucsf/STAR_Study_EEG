@@ -119,9 +119,10 @@ for i=1:length(files)
         % % chdata2(:,ac2)=NaN;
         % chdata_neutral(k,:) = smooth(nanmean(chdata2,2),50);
 
-
-        STUDY = []; CURRENTSTUDY = 0; ALLEEG = []; EEG=[]; CURRENTSET=[];
-        eeglab redraw
+        if i<length(files)
+            STUDY = []; CURRENTSTUDY = 0; ALLEEG = []; EEG=[]; CURRENTSET=[];
+            eeglab redraw
+        end
         k=k+1;
 
     end
@@ -131,12 +132,11 @@ chdata_neutral_imag = chdata_neutral;
 chdata_trauma_imag = chdata_trauma;
 subj_loaded_imag=subj_loaded;
 
-% load some dataset into eeglab
-
+delete(gcp)
 do_stats_and_plot_imag(chdata_neutral_imag,chdata_trauma_imag,EEG);
 
 % some time frequency decomposition
-x = squeeze(nanmean(chdata_trauma(19,:,:),3));
+x = squeeze(nanmean(chdata_trauma_imag(19,:,:),3));
 [pxx, f] = pwelch(x(1e3:5e3), 512, 256, 1024, EEG.srate);
 [pxx1, f1] = pwelch(x(8e3:13e3), 512, 256, 1024, EEG.srate);
 figure;
@@ -145,8 +145,8 @@ plot(f,log(pxx))
 plot(f1,log(pxx1))
 xlim([0 50])
 
-x = squeeze(nanmean(chdata_trauma(19,:,:),3)) - ...
-    squeeze(nanmean(chdata_neutral(19,:,:),3));
+x = squeeze(nanmean(chdata_trauma_imag(19,:,:),3)) - ...
+    squeeze(nanmean(chdata_neutral_imag(19,:,:),3));
 [pxx, f] = pwelch(x(1e3:5e3), 512, 256, 1024, EEG.srate);
 [pxx1, f1] = pwelch(x(8e3:13e3), 512, 256, 1024, EEG.srate);
 figure;
@@ -155,6 +155,11 @@ plot(f,log(pxx))
 plot(f1,log(pxx1))
 xlim([0 50])
 legend({'open','closed'})
+
+
+% clear all
+STUDY = []; CURRENTSTUDY = 0; ALLEEG = []; EEG=[]; CURRENTSET=[];
+eeglab redraw
 
 %%%%% now getting data from snippet viewing
 root_path='/media/user/Data/Ana EEG/STAR/Phase 2/Snippet_Datasets_Processed';
@@ -264,13 +269,16 @@ for i=1:length(files)
         % chdata_neutral(k,:) = smooth(nanmean(chdata2,2),50);
 
 
-        STUDY = []; CURRENTSTUDY = 0; ALLEEG = []; EEG=[]; CURRENTSET=[];
-        eeglab redraw
+         if i<length(files)
+            STUDY = []; CURRENTSTUDY = 0; ALLEEG = []; EEG=[]; CURRENTSET=[];
+            eeglab redraw
+        end
         k=k+1;
 
     end
 end
 
+delete(gcp)
 do_stats_and_plot(chdata_neutral,chdata_trauma,EEG);
 
 
@@ -296,13 +304,13 @@ xlim([0 50])
 
 
 
-%% CCA
+%% CCA leave one subject out 
 
 Fs=1e3;
 bpFilt = designfilt('lowpassiir', 'FilterOrder', 4, ...
-    'HalfPowerFrequency', 7, 'SampleRate', Fs);
+    'HalfPowerFrequency', 30, 'SampleRate', Fs);
 
-res=[];
+res=[];top=[];
 for i=1:size(chdata_trauma,3) %leave on subject out
     test_idx=i;
     aa=ones(22,1);
@@ -310,10 +318,11 @@ for i=1:size(chdata_trauma,3) %leave on subject out
     train_idx = find(aa==1);
     %train_idx=[1:14 16:22];
     %test_idx=15;
-    ch_idx = [14 43 15 44 16 46 19 47 20 48 23 50 51 24 25 53:56 27];
+    %ch_idx = [14 43 15 44 16 46 19 47 20 48 23 50 51 24 25 53:56 27];
+    ch_idx=1:62;
 
-    idx_snippet = 2e3:5e3;
-    idx_imag = 8.5e3:11.5e3;
+    idx_snippet = 2e3:4e3;
+    idx_imag = 9e3:11e3;
 
     snippet = chdata_trauma - chdata_neutral;
     Xa = snippet(ch_idx,idx_snippet,train_idx);
@@ -326,12 +335,17 @@ for i=1:size(chdata_trauma,3) %leave on subject out
     Xa= Xa(:,:);
     Xa=Xa';
     Xa= filtfilt(bpFilt,Xa);
+    [c,s,l]= pca(Xa);
+    Xa = s(:,1:15);
 
 
 
     Xa_test = snippet(ch_idx,idx_snippet,test_idx);
     Xa_test = Xa_test';
     Xa_test= filtfilt(bpFilt,Xa_test);
+    %[c,s,l]= pca(Xa_test);
+    %Xa_test = s(:,1:5);
+    Xa_test = (Xa_test-mean(Xa_test))*c(:,1:15);
 
     imag_data = chdata_trauma_imag - chdata_neutral_imag;
     Xb = imag_data(ch_idx,idx_imag,train_idx);
@@ -345,10 +359,15 @@ for i=1:size(chdata_trauma,3) %leave on subject out
     Xb= Xb(:,:);
     Xb=Xb';
     Xb= filtfilt(bpFilt,Xb);
+    [c,s,l]= pca(Xb);
+    Xb = s(:,1:15);
 
     Xb_test = imag_data(ch_idx,idx_imag,test_idx);
     Xb_test = Xb_test';
     Xb_test= filtfilt(bpFilt,Xb_test);
+    % [c,s,l]= pca(Xb_test);
+    % Xb_test = s(:,1:5);
+    Xb_test = (Xb_test-mean(Xb_test))*c(:,1:15);
 
     [Wa,Wb,S,Za,Zb] = cca(Xa,Xb);
 
@@ -374,7 +393,8 @@ for i=1:size(chdata_trauma,3) %leave on subject out
     plot(c)
     res=[res;c];
 
-    [aa,bb]=max(c)
+    [aa,bb]=max(c);
+    top=[top bb];
     figure;
     hold on
     plot(Za_cv(:,bb))
@@ -387,3 +407,86 @@ for i=1:size(chdata_trauma,3) %leave on subject out
 end
 
 figure;plot(mean(res,1))
+
+%% CCA ON GRAND AVERAGED ERP    
+% cross validate by leaving segments out 
+
+Fs=1e3;
+bpFilt = designfilt('lowpassiir', 'FilterOrder', 4, ...
+    'HalfPowerFrequency', 30, 'SampleRate', Fs);
+
+ch_idx = [14 43 15 44 16 46 19 47 20 48 23 50 51 24 25 53:56 27];
+%ch_idx=1:62;
+idx_snippet = 2e3:4e3;
+idx_imag = 9e3:11e3;
+train_idx=1:22;
+
+snippet = chdata_trauma - chdata_neutral;
+Xa = snippet(ch_idx,idx_snippet,train_idx);
+Xa = squeeze(mean(Xa,3))';
+Xa = filtfilt(bpFilt,Xa);
+% [c,s,l]= pca(Xa);
+% Xa = s(:,1:5);
+
+imag_data = chdata_trauma_imag - chdata_neutral_imag;
+Xb = imag_data(ch_idx,idx_imag,train_idx);
+Xb = squeeze(mean(Xb,3))';
+Xb = filtfilt(bpFilt,Xb);
+% [c,s,l]= pca(Xb);
+% Xb = s(:,1:5);
+
+train_times = [401:1200 1201:2001];
+test_times = [1:400];
+Xa_train = Xa(train_times,:);
+Xb_train= Xb(train_times,:);
+[Wa,Wb,S,Za,Zb] = cca(Xa_train,Xb_train);
+
+Za_cv = (Xa(test_times,:)-mean(Xa(test_times,:)))*Wa;
+Zb_cv = (Xb(test_times,:)-mean(Xb(test_times,:)))*Wb;
+
+c=[];
+for i=1:size(Za_cv,2)
+    x= corrcoef(Za_cv(:,i),Zb_cv(:,i));
+    c(i) = x(1,2);
+end
+figure;
+plot(c)
+
+figure;plot(Za_cv(:,1));hold on;plot(Zb_cv(:,1))
+
+%% PCA whether the covariance structure is preserved over sig. electrodes
+
+Fs=1e3;
+bpFilt = designfilt('lowpassiir', 'FilterOrder', 4, ...
+    'HalfPowerFrequency', 30, 'SampleRate', Fs);
+
+
+idx_snippet = 2e3:4e3;
+idx_imag = 9e3:11e3;
+train_idx=1:22;
+
+snippet = chdata_trauma - chdata_neutral;
+Xa = snippet(ch_idx,idx_snippet,train_idx);
+Xa = squeeze(mean(Xa,3))';
+%Xa = filtfilt(bpFilt,Xa);
+
+imag_data = chdata_trauma_imag - chdata_neutral_imag;
+Xb = imag_data(ch_idx,idx_imag,train_idx);
+Xb = squeeze(mean(Xb,3))';
+%Xb = filtfilt(bpFilt,Xb);
+
+[c,s,l]= pca(Xa);
+[c1,s1,l1]= pca(Xb);
+
+[angles,Va,Vb] = principal_angles(c(:,1:5),c1(:,1:5));
+angles
+
+
+[Wa,Wb,S,Za,Zb] = cca(s(:,1:5),s1(:,1:5));
+figure;plot(S)
+
+% AR(p) process to estimate the stats of the cca corr?
+% or using TME method to do stats end to end. 
+
+
+
