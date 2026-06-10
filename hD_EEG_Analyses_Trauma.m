@@ -27,8 +27,12 @@ end
 
 % go to the specific subject's folder
 subj_name = ['Participant ' '24028'];
-%root_path = fullfile('/media/user/Data/Ana EEG/STAR/Phase 2',subj_name);
-root_path=fullfile('F:\DATA\EEG Data Anne Richards\STAR\Phase 2',subj_name);
+
+if ispc
+    root_path=fullfile('F:\DATA\EEG Data Anne Richards\STAR\Phase 2',subj_name);
+else
+    root_path = fullfile('/media/user/Data/Ana EEG/STAR/Phase 2',subj_name);
+end
 cd(root_path)
 
 % starting eeglab
@@ -50,8 +54,8 @@ data=EEG.data;
 
 % plot the stim trigger -> the channel differs by recording?
 figure;
-%stim = data(83,:);
-stim = data(79,:);
+stim = data(83,:);
+%stim = data(79,:);
 stem(stim)
 
 % remove unncesary triggers at the end

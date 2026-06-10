@@ -13,7 +13,7 @@ addpath('C:\Users\nikic\Documents\MATLAB\eeglab2023.1')
 %addpath(genpath('C:\Users\nikic\Documents\MATLAB\fieldtrip-20250114'))
 addpath('C:\Users\nikic\Documents\MATLAB')
 else
-    root_path='/media/user/Data/Ana EEG/STAR/Phase 2/Participant 24039';
+    root_path='/media/user/Data/Ana EEG/STAR/Phase 2/Participant 24041';
     addpath('/home/user/Documents/MATLAB/eeglab2023.1');
     addpath(genpath('/home/user/Documents/MATLAB/Ana EEG/hdEEG_Trauma_PTSD/SAGA_Matlab/SAGA_interface/'))
     cd(root_path);
@@ -51,7 +51,7 @@ plot(stim)
 % extract the stim onsets from the triggers
 d = [0 diff(stim)];
 d1 = (find(d==1)); % these are all the transitions from 0 to 1
-d1 = [d1 d1(end)+600];
+d1 = [d1 d1(end)+600]; %%% NEW LINE THAR CORRECTS BUG
 % identifying stim onsets
 stim_onsets=[];
 done=false;k=1;
@@ -77,11 +77,11 @@ while ~done
 
 end
 %stim_onsets = stim_onsets(2:3:end); % taking into account just the two pulse flashes
-stim_onsets = stim_onsets(1:3:end); % when the snapshot appeared
+stim_onsets = stim_onsets(1:2:end); % when the snapshot appeared
 
 % now taking into account that the stim onsets have a 40ms delay due to
 % photosensor settings
-stim_onsets = stim_onsets-3; % look at the screenshots from Iryne
+stim_onsets = stim_onsets-5; % look at the screenshots from Iryne
 figure;stem(stim)
 vline(stim_onsets,'r')
 disp(['number of detected stim is ' num2str(length(stim_onsets))]);
