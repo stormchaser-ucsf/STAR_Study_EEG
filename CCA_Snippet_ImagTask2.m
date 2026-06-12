@@ -22,6 +22,7 @@ else
 end
 
 cd(root_path)
+load('/media/user/Data/Ana EEG/STAR/Phase 2/sig_ch.mat')
 eeglab
 
 files=findfiles('.set',root_path)'; % all the imag2 files
@@ -132,8 +133,8 @@ chdata_neutral_imag = chdata_neutral;
 chdata_trauma_imag = chdata_trauma;
 subj_loaded_imag=subj_loaded;
 
-delete(gcp)
-do_stats_and_plot_imag(chdata_neutral_imag,chdata_trauma_imag,EEG);
+%delete(gcp)
+%do_stats_and_plot_imag(chdata_neutral_imag,chdata_trauma_imag,EEG);
 
 % some time frequency decomposition
 x = squeeze(nanmean(chdata_trauma_imag(19,:,:),3));
@@ -164,18 +165,18 @@ eeglab redraw
 %%%%% now getting data from snippet viewing
 root_path='/media/user/Data/Ana EEG/STAR/Phase 2/Snippet_Datasets_Processed';
 files=findfiles('.set',root_path)';
-
-files1={};
-for i=1:length(files)
-    for j=1:length(subj_loaded_imag)
-        a  = (regexp(files{i},subj_loaded_imag{j}));
-        if ~isempty(a)
-            files1=[files1;files(i)];
-            break
-        end
-    end
-end
-files=files1;
+% 
+% files1={};
+% for i=1:length(files)
+%     for j=1:length(subj_loaded_imag)
+%         a  = (regexp(files{i},subj_loaded_imag{j}));
+%         if ~isempty(a)
+%             files1=[files1;files(i)];
+%             break
+%         end
+%     end
+% end
+% files=files1;
 
 %Splitting into neutral and trauma snippets
 neutral_epochs= [1 3 5 7 8 11 14 17 19 21 23 24 27 29 30 33 34 37 39 40];
@@ -278,8 +279,8 @@ for i=1:length(files)
     end
 end
 
-delete(gcp)
-do_stats_and_plot(chdata_neutral,chdata_trauma,EEG);
+%delete(gcp)
+%do_stats_and_plot(chdata_neutral,chdata_trauma,EEG);
 
 
 % some time frequency decomposition
@@ -303,12 +304,111 @@ plot(f,log(pxx))
 xlim([0 50])
 
 
+%% PCA MANIFOLD ANALYSES    
+% Q1: what is the dimensionality of the subject averaged manifold for both
+% conditions?
+Fs=1e3;
+bpFilt = designfilt('lowpassiir', 'FilterOrder', 4, ...
+    'HalfPowerFrequency', 15, 'SampleRate', Fs);
+
+a = chdata_trauma - chdata_neutral;
+a = squeeze(mean(a,3));
+
+b = chdata_trauma_imag - chdata_neutral_imag;
+b = squeeze(mean(b,3));
+
+idx_snippet = 2e3:5e3;
+idx_imag = 8.5e3:11.5e3;
+
+a=a(:,idx_snippet)';
+b=b(:,idx_imag)';
+
+%a=a-mean(a);
+%b=b-mean(b);
+
+[c1,s1,l1] = pca(a);
+[c2,s2,l2] = pca(b);
+
+figure;stem(cumsum(l1)./sum(l1))
+hold on
+stem(cumsum(l2)./sum(l2))
+legend({'Snippet','Imag'})
+hline(0.9)
+axis tight
+figure;
+topoplot(c2(:,4),EEG.chanlocs);
+axis tight
+
+
+%Q2: what are the principal angles betwen the two manifolds? More sig. than
+%TME stats?
+cd('/home/user/Documents/Repositories/STAR_Study_EEG')
+addpath(genpath(pwd))
+angles = principal_angles(c1(:,1:10),c2(:,1:10));
+clear dataTensor
+dataTensor(:,:,1) = a;
+dataTensor(:,:,2) = b;
+surr_type = 'surrogate-TC';
+dataTensor = double(dataTensor);
+maxEntropy = run_tme(dataTensor,surr_type);
+
+boot_angles=[];
+parfor loop=1:1000
+    surrTensor = simulate_time(maxEntropy);
+    tmp = compute_prin_angles_PC(surrTensor,10);
+    boot_angles(:,loop) = tmp;
+end
+
+figure;
+plot(angles)
+hold on
+plot(boot_angles,'Color',[.2 .2 .2 .02])
+
+%Q3: does it generalize (VAF) to unseen subjects using cross validation?
+
+
+%Q4: dPCA analyses 
+addpath('/home/user/Documents/Repositories/dPCA/matlab')
+firingRatesAverage = permute(dataTensor,[2,3,1]);
+%combinedParams = {{1, [1 2]}, {2}};
+%margNames = {'Movement type', 'Time'};
+
+combinedParams = {{1}, {2}, {[1 2]}};
+margNames = {'Movement type', 'Time', 'Movement type/time interaction'};
+
+% simple stuff
+time=1:size(firingRatesAverage,3);
+timeEvents = time(round(length(time)/2));
+margColours = [23 100 171; 187 20 25; 150 150 150]/256;
+
+% doing dPCA
+dim=10;
+[W,V,whichMarg] = dpca(firingRatesAverage, dim, ...
+    'combinedParams', combinedParams);
+
+explVar = dpca_explainedVariance(firingRatesAverage, W, V, ...
+    'combinedParams', combinedParams);
+explVar.cumulativeDPCA;
+
+% plotting
+dpca_plot(firingRatesAverage, W, V, @dpca_plot_default, ...
+    'explainedVar', explVar, ...
+    'marginalizationNames', margNames, ...
+    'marginalizationColours', margColours, ...
+    'whichMarg', whichMarg,                 ...
+    'time', time,                        ...
+    'timeEvents', timeEvents,               ...
+    'timeMarginalization', 3, ...
+    'legendSubplot', 16,...
+    'numCompToShow',10);
+
+principal_angles(c1(:,1:10),V)
 
 %% CCA leave one subject out 
 
 Fs=1e3;
 bpFilt = designfilt('lowpassiir', 'FilterOrder', 4, ...
-    'HalfPowerFrequency', 30, 'SampleRate', Fs);
+    'HalfPowerFrequency', 15, 'SampleRate', Fs);
 
 res=[];top=[];
 for i=1:size(chdata_trauma,3) %leave on subject out
@@ -413,10 +513,10 @@ figure;plot(mean(res,1))
 
 Fs=1e3;
 bpFilt = designfilt('lowpassiir', 'FilterOrder', 4, ...
-    'HalfPowerFrequency', 30, 'SampleRate', Fs);
+    'HalfPowerFrequency', 20, 'SampleRate', Fs);
 
-ch_idx = [14 43 15 44 16 46 19 47 20 48 23 50 51 24 25 53:56 27];
-%ch_idx=1:62;
+%ch_idx = [14 43 15 44 16 46 19 47 20 48 23 50 51 24 25 53:56 27];
+ch_idx=1:62;
 idx_snippet = 2e3:4e3;
 idx_imag = 9e3:11e3;
 train_idx=1:22;
@@ -461,8 +561,8 @@ bpFilt = designfilt('lowpassiir', 'FilterOrder', 4, ...
     'HalfPowerFrequency', 30, 'SampleRate', Fs);
 
 
-idx_snippet = 2e3:4e3;
-idx_imag = 9e3:11e3;
+idx_snippet = 2e3:5e3;
+idx_imag = 8.5e3:11.5e3;
 train_idx=1:22;
 
 snippet = chdata_trauma - chdata_neutral;

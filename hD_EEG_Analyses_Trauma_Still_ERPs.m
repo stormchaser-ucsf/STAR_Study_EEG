@@ -1,5 +1,5 @@
 %% ANALYZING THE EEG DATA FROM PILOT OF PTSD TRAUMA DATA
-
+%%% USE THIS FOR IMAGINATION TASK 
 clc;clear
 close all
 
@@ -749,6 +749,7 @@ else
     [mask,cluster_p,max_th] = ...
         limo_clustering((t_scores.^2),p_scores,...
         (tboot.^2),pboot,LIMO,2,0.05,0);
+   
     figure;subplot(3,1,1)
     tt=linspace(-1,13,size(t_scores,2));
     imagesc(tt,1:62,t_scores);
@@ -765,7 +766,8 @@ else
 
     a=mask;
     chMap=1:62;
-    aa=sum(a(:,1000:12000),2);
+    aa=sum(a(:,8000:12000),2);
+    %aa=sum(a(:,1000:5000),2);
     aa=aa./max(aa);% normalize
     subplot(3,1,3);
     topoplot((aa),EEG.chanlocs,'maplimits', [-1 1])
