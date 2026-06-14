@@ -259,18 +259,27 @@ Fs=1e3;
 bpFilt = designfilt('lowpassiir', 'FilterOrder', 4, ...
     'HalfPowerFrequency', 15, 'SampleRate', Fs);
 
-a = chdata_trauma - chdata_neutral;
-a = squeeze(mean(a,3));
 
-b = chdata_trauma_imag - chdata_neutral_imag;
-b = squeeze(mean(b,3));
-
+% experimental 
 idx_snippet = 2e3:5e3;
 idx_imag = 8.5e3:11.5e3;
 
+% control
+% idx_snippet = [1:1e3  6e3:7e3];
+% idx_imag = [1:1e3  13e3:14e3];
+
+a = chdata_trauma - chdata_neutral;
+b = chdata_trauma_imag - chdata_neutral_imag;
+
+
+a = squeeze(mean(a,3));
+b = squeeze(mean(b,3));
+
+
 a=a(:,idx_snippet)';
 b=b(:,idx_imag)';
-
+a=double(a);
+b=double(b);
 %a=a-mean(a);
 %b=b-mean(b);
 
@@ -282,7 +291,7 @@ figure;stem(cumsum(l1)./sum(l1))
 hold on
 stem(cumsum(l2)./sum(l2))
 legend({'Snippet','Imag'})
-hline(0.9)
+hline(0.95)
 axis tight
 figure;
 topoplot(c2(:,4),EEG.chanlocs);
@@ -301,7 +310,7 @@ dataTensor(:,:,2) = b;
 surr_type = 'surrogate-TC';
 dataTensor = double(dataTensor);
 maxEntropy = run_tme(dataTensor,surr_type);
-parpool('threads')
+%parpool('threads')
 boot_angles=[];
 parfor loop=1:1000
     surrTensor = simulate_time(maxEntropy);
@@ -347,7 +356,173 @@ figure;
 boxplot(vaf)
 ylim([0 1])
 
+%Q4: comparison with baseline manifold structure?
+angles_baseline=[];
+% idx_snippet_baseline = [1:1e3  6e3:7e3];
+% idx_imag_baseline = [1:1e3  13e3:14e3];
+idx_snippet_baseline = [1:1e3 ];
+idx_imag_baseline = [1:1e3 ];
+pcap_baseline=[];
+dim=11;
+pcap_sweep_boot=[];
+parfor i=1:1000
+    idx = randi(size(chdata_neutral,3),size(chdata_neutral,3),1);
+    a = double(chdata_trauma - chdata_neutral);
+    a1 = a(:,:,idx);    
+    a1 = squeeze(mean(a1,3));
+    a1 = a1(:,idx_snippet_baseline)';
+    %a1 = a1-mean(a1,2);
+
+    idx = randi(size(chdata_neutral_imag,3),size(chdata_neutral_imag,3),1);
+    b = double(chdata_trauma_imag - chdata_neutral_imag);
+    b1 = b(:,:,idx);    
+    b1 = squeeze(mean(b1,3));
+    b1 = b1(:,idx_imag_baseline)';
+    %b1 = b1-mean(b1,2);
 
 
+    [c11,s11,l11] = pca(a1,'Centered','on');
+    [c22,~,~] = pca(b1,'Centered','on');
+
+    angles_baseline(i,:) = principal_angles(c11(:,1:dim),c22(:,1:dim));
+    
+    num = (c22(:,1:dim)*c22(:,1:dim)')*(c11(:,1:dim)*c11(:,1:dim)')*...
+        (c22(:,1:dim)*c22(:,1:dim)');
+    den = c11(:,1:dim)*c11(:,1:dim)';
+    pcap_baseline(i,:) = trace(num)/trace(den);
+
+    for j=5:20
+        num = (c22(:,1:j)*c22(:,1:j)')*(c11(:,1:j)*c11(:,1:j)')*...
+            (c22(:,1:j)*c22(:,1:j)');
+        den = c11(:,1:j)*c11(:,1:j)';
+        pcap_sweep_boot(i,j) = trace(num)/trace(den);
+    end
+
+end
+pcap_sweep_boot=pcap_sweep_boot(:,5:end);
+
+a = chdata_trauma - chdata_neutral;
+a = squeeze(mean(a,3));
+b = chdata_trauma_imag - chdata_neutral_imag;
+b = squeeze(mean(b,3));
+
+% experimental 
+idx_snippet = 2e3:5e3;
+idx_imag = 8.5e3:11.5e3;
+
+a=a(:,idx_snippet)';
+b=b(:,idx_imag)';
+a=double(a);
+b=double(b);
+
+% a=a-mean(a,2);
+% b=b-mean(b,2);
+
+[c1,s1,l1] = pca(a,'Centered','on');
+[c2,s2,l2] = pca(b,'Centered','on');
 
 
+angles_main = principal_angles(c1(:,1:dim),c2(:,1:dim));
+angles_baseline= sort(angles_baseline);
+figure;
+plot(angles_main)
+hold on
+plot(angles_baseline(25,:),'Color',[.5 .5 .5 .5])
+plot(angles_baseline(975,:),'Color',[.5 .5 .5 .5])
+legend({'Task specific angles','Angles in baseline period'})
+
+num = (c2(:,1:dim)*c2(:,1:dim)')*(c1(:,1:dim)*c1(:,1:dim)')*...
+    (c2(:,1:dim)*c2(:,1:dim)');
+den = c1(:,1:dim)*c1(:,1:dim)';
+pcap= trace(num)/trace(den);
+figure;hist(pcap_baseline)
+vline(pcap)
+title([' p = ' num2str(1-sum(pcap>=pcap_baseline)/length(pcap_baseline))])
+
+pcap_sweep_main=[];
+for j=5:20
+    num = (c2(:,1:j)*c2(:,1:j)')*(c1(:,1:j)*c1(:,1:j)')*...
+        (c2(:,1:j)*c2(:,1:j)');
+    den = c1(:,1:j)*c1(:,1:j)';
+    pcap_sweep_main(j-4) = trace(num)/trace(den);
+end
+figure;plot(5:20,pcap_sweep_main)
+xticks(5:20)
+pcap_sweep_boot = sort(pcap_sweep_boot);
+hold on
+plot(5:20,pcap_sweep_boot(25,:),'Color',[.5 .5 .5 .5])
+plot(5:20,pcap_sweep_boot(975,:),'Color',[.5 .5 .5 .5])
+legend({'Task-specific','95% interval'})
+xlabel('Dimensions')
+ylabel('Percent variance captured between manifolds')
+plot_beautify
+
+% 
+% % DOING ABOVE BUT STACKING ACROSS SUBEJCTS
+% % SO PCA NOT ON SUBJECT AVERAGED BUT ACROSS ALL SUBJECTS STACKED
+% angles_baseline=[];
+% idx_snippet_baseline = [1:1e3 ];
+% idx_imag_baseline = [1:1e3 ];
+% pcap_baseline=[];
+% dim=8;
+% parfor i=1:1000
+%     idx = randi(size(chdata_neutral,3),size(chdata_neutral,3),1);
+%     a = double(chdata_trauma - chdata_neutral);
+%     a1 = a(:,idx_snippet_baseline,idx);    
+%     a1 = reshape(a1,size(a1,1),[])';
+% 
+%     idx = randi(size(chdata_neutral_imag,3),size(chdata_neutral_imag,3),1);
+%     b = double(chdata_trauma_imag - chdata_neutral_imag);
+%     b1 = b(:,idx_imag_baseline,idx);    
+%     b1 = reshape(b1,size(b1,1),[])';
+% 
+% 
+%     [c11,s11,l11] = pca(a1);
+%     [c22,~,~] = pca(b1);
+% 
+%     angles_baseline(i,:) = principal_angles(c11(:,1:dim),c22(:,1:dim));
+% 
+%     num = (c22(:,1:dim)*c22(:,1:dim)')*(c11(:,1:dim)*c11(:,1:dim)')*...
+%         (c22(:,1:dim)*c22(:,1:dim)');
+%     den = c11(:,1:dim)*c11(:,1:dim)';
+%     pcap_baseline(i,:) = trace(num)/trace(den);
+% 
+% end
+% 
+% % in actual data
+% % experimental 
+% idx_snippet = 2e3:5e3;
+% idx_imag = 8.5e3:11.5e3;
+% 
+% a = chdata_trauma - chdata_neutral;
+% a = a(:,idx_snippet,:);
+% a= reshape(a,size(a,1),[]);
+% 
+% b = chdata_trauma_imag - chdata_neutral_imag;
+% b = b(:,idx_imag,:);
+% b= reshape(b,size(b,1),[]);
+% 
+% a=double(a)';
+% b=double(b)';
+% 
+% [c1,s1,l1] = pca(a);
+% [c2,s2,l2] = pca(b);
+% 
+% 
+% angles_main = principal_angles(c1(:,1:dim),c2(:,1:dim));
+% angles_baseline= sort(angles_baseline);
+% figure;
+% plot(angles_main)
+% hold on
+% plot(angles_baseline(25,:),'Color',[.5 .5 .5 .5])
+% plot(angles_baseline(975,:),'Color',[.5 .5 .5 .5])
+% legend({'Task specific angles','Angles in baseline period'})
+% 
+% num = (c2(:,1:dim)*c2(:,1:dim)')*(c1(:,1:dim)*c1(:,1:dim)')*...
+%     (c2(:,1:dim)*c2(:,1:dim)');
+% den = c1(:,1:dim)*c1(:,1:dim)';
+% pcap= trace(num)/trace(den);
+% figure;hist(pcap_baseline)
+% vline(pcap)
+% title([' p = ' num2str(1-sum(pcap>=pcap_baseline)/length(pcap_baseline))])
+% 
