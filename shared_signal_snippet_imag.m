@@ -287,12 +287,16 @@ b=double(b);
 [c2,s2,l2] = pca(b);
 
 % Q1: what is the shared dimensionality? 
-figure;stem(cumsum(l1)./sum(l1))
+figure;stem(cumsum(l1)./sum(l1),'LineWidth',1)
 hold on
-stem(cumsum(l2)./sum(l2))
+stem(cumsum(l2)./sum(l2),'LineWidth',1)
 legend({'Snippet','Imag'})
-hline(0.95)
+hline(0.95,'--k')
 axis tight
+plot_beautify
+xlabel('Dimension')
+ylabel('Variance Accounted For')
+
 figure;
 topoplot(c2(:,4),EEG.chanlocs);
 axis tight
@@ -300,17 +304,40 @@ axis tight
 
 %Q2: what are the principal angles betwen the two manifolds? More sig. than
 %TME stats?
-dim=11;
+dim=17;
 cd('/home/user/Documents/Repositories/STAR_Study_EEG')
 addpath(genpath(pwd))
+addpath(genpath('/home/user/Documents/Repositories/ECoG_BCI_TravelingWaves/'))
 angles = principal_angles(c1(:,1:dim),c2(:,1:dim));
+
+parpool('threads')
+
+% control stats of no covariance in task-specific data 
 clear dataTensor
 dataTensor(:,:,1) = a;
 dataTensor(:,:,2) = b;
 surr_type = 'surrogate-TC';
 dataTensor = double(dataTensor);
 maxEntropy = run_tme(dataTensor,surr_type);
-%parpool('threads')
+
+% TNC to baseline period
+idx_snippet_control = [1:1e3  ];
+idx_imag_control = [1:1e3  ];
+a1 = chdata_trauma - chdata_neutral;
+b1 = chdata_trauma_imag - chdata_neutral_imag;
+a1 = squeeze(mean(a1,3));
+b1 = squeeze(mean(b1,3));
+a1=a1(:,idx_snippet_control)';
+b1=b1(:,idx_imag_control)';
+a1=double(a1);
+b1=double(b1);
+clear dataTensor
+dataTensor(:,:,1) = a1;
+dataTensor(:,:,2) = b1;
+surr_type = 'surrogate-TNC';
+dataTensor = double(dataTensor);
+maxEntropy = run_tme(dataTensor,surr_type);
+
 boot_angles=[];
 parfor loop=1:1000
     surrTensor = simulate_time(maxEntropy);
@@ -319,11 +346,30 @@ parfor loop=1:1000
 end
 
 figure;
-plot(angles)
+plot(angles,'LineWidth',1)
+xticks(1:dim)
+xlabel('Dimension')
+ylabel('Principal angle b/w manifolds')
+plot_beautify
 hold on
 plot(boot_angles,'Color',[.2 .2 .2 .02])
+legend({'B/w imag and snippet','B/w null manifolds'})
+% pvalues
+boot_angles = sort(boot_angles');
+plot(boot_angles(25,:),'--r')
+plot(boot_angles(975,:),'--r')
 
-%Q3: cross validation ie VAF when generalizing to held out subject
+pval=[];
+for i=1:length(angles)
+    pval(i) = 1- (sum(boot_angles(:,i) > angles(i)))/size(boot_angles,1);
+end
+[pfdr,pmask]=fdr(pval,0.05);
+sum(pval<=pfdr)
+
+%% Q3: cross validation ie VAF when generalizing to held out subject
+% examining recon VAF projecting held out data onto manifold built from
+% other subjects, across condition
+dim=11;
 vaf=[];
 for i=1:size(chdata_neutral,3)
     I = ones(size(chdata_neutral,3),1);
@@ -331,8 +377,7 @@ for i=1:size(chdata_neutral,3)
     I(i)=0;
     train_idx = find(I==1);
 
-    % cross validating first on snippet viewing (how well each subject
-    % matches to manifold estimated from mean of other subjects)
+    % projecting snippet onto imagination space
     a = chdata_trauma_imag(:,:,train_idx) - chdata_neutral_imag(:,:,train_idx);
     a = squeeze(mean(a,3));
     a=a(:,idx_imag)';
@@ -342,19 +387,83 @@ for i=1:size(chdata_neutral,3)
     % tmp = randn(size(c(:,1:dim)));
     % [Q,~] = qr(tmp,0);
     % manifold = Q;
-
     atest = chdata_trauma(:,:,test_idx) - chdata_neutral(:,:,test_idx);
     atest = atest(:,idx_snippet)';
     atest = atest-mean(atest);
-
     ahat = atest - atest*(manifold*manifold');
     num = norm(atest,'fro')^2 -norm(ahat,'fro')^2;
     den = norm(atest,'fro')^2;
-    vaf(i) = num/den;
+    vaf1 = num/den;
+
+    % projecting imag onto snippet space
+    a = chdata_trauma(:,:,train_idx) - chdata_neutral(:,:,train_idx);
+    a = squeeze(mean(a,3));
+    a=a(:,idx_snippet)';
+    [c,s,l] = pca(a);
+    manifold=c(:,1:dim);
+    % null
+    % tmp = randn(size(c(:,1:dim)));
+    % [Q,~] = qr(tmp,0);
+    % manifold = Q;
+    atest = chdata_trauma_imag(:,:,test_idx) - chdata_neutral_imag(:,:,test_idx);
+    atest = atest(:,idx_imag)';
+    atest = atest-mean(atest);
+    ahat = atest - atest*(manifold*manifold');
+    num = norm(atest,'fro')^2 -norm(ahat,'fro')^2;
+    den = norm(atest,'fro')^2;
+    vaf2 = num/den;
+
+    vaf(i,:) = [vaf1 vaf2];
 end
+
+% doing null distribution now
+% do 1000 times:
+    % each subject imag and snippet project onto random manifold, average
+    % do for all subj
+    % average the VAF across subj -> 1 random permutation sample
+vaf_boot=[];
+parfor j=1:1000
+    vaf_tmp=[];
+    for i=1:size(chdata_neutral,3)
+
+        % imag proj. on random
+        tmp = randn(size(chdata_neutral,1),dim);
+        [Q,~] = qr(tmp,0);
+        manifold = Q;        
+        atest = chdata_trauma_imag(:,:,i) - chdata_neutral_imag(:,:,i);
+        atest = atest(:,idx_imag)';
+        atest = atest-mean(atest);
+        ahat = atest - atest*(manifold*manifold');
+        num = norm(atest,'fro')^2 -norm(ahat,'fro')^2;
+        den = norm(atest,'fro')^2;
+        vaf2 = num/den;
+
+        % snippet proj. on random
+        tmp = randn(size(chdata_neutral,1),dim);
+        [Q,~] = qr(tmp,0);
+        manifold = Q;        
+        atest = chdata_trauma(:,:,i) - chdata_neutral(:,:,i);
+        atest = atest(:,idx_snippet)';
+        atest = atest-mean(atest);
+        ahat = atest - atest*(manifold*manifold');
+        num = norm(atest,'fro')^2 -norm(ahat,'fro')^2;
+        den = norm(atest,'fro')^2;
+        vaf1 = num/den;
+
+        vaf_tmp(i,:) = [vaf1 vaf2];
+    end
+    vaf_boot(j) = mean(vaf_tmp(:));
+end
+
+vaf=mean(vaf,2);
+vaf(end+1:length(vaf_boot))=NaN;vaf=vaf(:);
+vaf_data = [vaf vaf_boot(:)];
 figure;
-boxplot(vaf)
-ylim([0 1])
+boxplot(vaf_data)
+xticks(1:2)
+xticklabels({'Cross-condition','Null'})
+plot_beautify
+ylabel('Cross-validated VAF')
 
 %Q4: comparison with baseline manifold structure?
 angles_baseline=[];
