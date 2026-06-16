@@ -323,8 +323,8 @@ dataTensor = double(dataTensor);
 maxEntropy = run_tme(dataTensor,surr_type);
 
 % TNC to baseline period
-idx_snippet_control = [1:1e3  ];
-idx_imag_control = [1:1e3  ];
+idx_snippet_control = [100:0.9e3  ];
+idx_imag_control = [100:0.9e3  ];
 a1 = chdata_trauma - chdata_neutral;
 b1 = chdata_trauma_imag - chdata_neutral_imag;
 a1 = squeeze(mean(a1,3));
@@ -374,7 +374,12 @@ sum(pval<=pfdr)
 figure;
 hist(boot_pcap)
 vline(pcap,'r')
-1 - sum(pcap>boot_pcap)/length(boot_pcap)
+pp=1 - sum(pcap>boot_pcap)/length(boot_pcap)
+xlabel('Percent. variance shared b/w manifolds')
+ylabel('Hist')
+plot_beautify
+title(['p val. of: ' num2str(pp)])
+legend('Baseline')
 
 %% Q3: cross validation ie VAF when generalizing to held out subject
 % examining recon VAF projecting held out data onto manifold built from
@@ -480,8 +485,8 @@ ylabel('Cross-validated VAF')
 angles_baseline=[];
 % idx_snippet_baseline = [1:1e3  6e3:7e3];
 % idx_imag_baseline = [1:1e3  13e3:14e3];
-idx_snippet_baseline = [1:1e3 ];
-idx_imag_baseline = [1:1e3 ];
+idx_snippet_baseline = [100:1e3 ];
+idx_imag_baseline = [100:1e3 ];
 pcap_baseline=[];
 dim=11;
 pcap_sweep_boot=[];
