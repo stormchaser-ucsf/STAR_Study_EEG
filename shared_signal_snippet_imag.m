@@ -304,11 +304,13 @@ axis tight
 
 %Q2: what are the principal angles betwen the two manifolds? More sig. than
 %TME stats?
-dim=17;
+dim=11;
 cd('/home/user/Documents/Repositories/STAR_Study_EEG')
 addpath(genpath(pwd))
 addpath(genpath('/home/user/Documents/Repositories/ECoG_BCI_TravelingWaves/'))
-angles = principal_angles(c1(:,1:dim),c2(:,1:dim));
+addpath(genpath('/home/user/Documents/Repositories/STAR_Study_EEG'))
+[angles,~,~,pcap] = principal_angles(c1(:,1:dim),c2(:,1:dim));
+
 
 parpool('threads')
 
@@ -339,10 +341,12 @@ dataTensor = double(dataTensor);
 maxEntropy = run_tme(dataTensor,surr_type);
 
 boot_angles=[];
+boot_pcap=[];
 parfor loop=1:1000
     surrTensor = simulate_time(maxEntropy);
-    tmp = compute_prin_angles_PC(surrTensor,dim);
+    [tmp,tmp_p] = compute_prin_angles_PC_Ana(surrTensor,dim);
     boot_angles(:,loop) = tmp;
+    boot_pcap(loop)=tmp_p;
 end
 
 figure;
@@ -353,7 +357,7 @@ ylabel('Principal angle b/w manifolds')
 plot_beautify
 hold on
 plot(boot_angles,'Color',[.2 .2 .2 .02])
-legend({'B/w imag and snippet','B/w null manifolds'})
+legend({'B/w imag and snippet','B/w baseline manifolds'})
 % pvalues
 boot_angles = sort(boot_angles');
 plot(boot_angles(25,:),'--r')
@@ -365,6 +369,12 @@ for i=1:length(angles)
 end
 [pfdr,pmask]=fdr(pval,0.05);
 sum(pval<=pfdr)
+
+% on pcap
+figure;
+hist(boot_pcap)
+vline(pcap,'r')
+1 - sum(pcap>boot_pcap)/length(boot_pcap)
 
 %% Q3: cross validation ie VAF when generalizing to held out subject
 % examining recon VAF projecting held out data onto manifold built from
@@ -465,7 +475,8 @@ xticklabels({'Cross-condition','Null'})
 plot_beautify
 ylabel('Cross-validated VAF')
 
-%Q4: comparison with baseline manifold structure?
+%% Q4: comparison with baseline manifold structure?
+% based on increasing dimensionality 
 angles_baseline=[];
 % idx_snippet_baseline = [1:1e3  6e3:7e3];
 % idx_imag_baseline = [1:1e3  13e3:14e3];
@@ -506,7 +517,6 @@ parfor i=1:1000
         den = c11(:,1:j)*c11(:,1:j)';
         pcap_sweep_boot(i,j) = trace(num)/trace(den);
     end
-
 end
 pcap_sweep_boot=pcap_sweep_boot(:,5:end);
 
@@ -555,13 +565,13 @@ for j=5:20
     den = c1(:,1:j)*c1(:,1:j)';
     pcap_sweep_main(j-4) = trace(num)/trace(den);
 end
-figure;plot(5:20,pcap_sweep_main)
+figure;plot(5:20,pcap_sweep_main,'LineWidth',1,'Color','k')
 xticks(5:20)
 pcap_sweep_boot = sort(pcap_sweep_boot);
 hold on
-plot(5:20,pcap_sweep_boot(25,:),'Color',[.5 .5 .5 .5])
-plot(5:20,pcap_sweep_boot(975,:),'Color',[.5 .5 .5 .5])
-legend({'Task-specific','95% interval'})
+plot(5:20,pcap_sweep_boot(25,:),'Color',[.75 .15 .15 .5],'LineWidth',1)
+plot(5:20,pcap_sweep_boot(975,:),'Color',[.75 .15 .15 .5],'LineWidth',1)
+legend({'Task-specific','95% interval from Baseline'})
 xlabel('Dimensions')
 ylabel('Percent variance captured between manifolds')
 plot_beautify
@@ -635,3 +645,278 @@ plot_beautify
 % vline(pcap)
 % title([' p = ' num2str(1-sum(pcap>=pcap_baseline)/length(pcap_baseline))])
 % 
+
+%% dPCA, cross-validated
+
+addpath('/home/user/Documents/Repositories/dPCA/matlab')
+a = chdata_trauma - chdata_neutral;
+a = squeeze(mean(a,3));
+b = chdata_trauma_imag - chdata_neutral_imag;
+b = squeeze(mean(b,3));
+
+% experimental 
+% idx_snippet = 2e3:5e3;
+% idx_imag = 8.5e3:11.5e3;
+
+% control
+% idx_snippet = 1:1e3;
+% idx_imag = 1:1e3;
+
+idx_snippet = 100:900;
+idx_imag = 100:900;
+
+
+a=a(:,idx_snippet)';
+b=b(:,idx_imag)';
+a=double(a);
+b=double(b);
+
+clear dataTensor1
+dataTensor1(:,1,:) = a';
+dataTensor1(:,2,:) = b';
+X =  dataTensor1; % channels X conditions X time 
+
+
+X = double(X);
+
+[nChan, nCond, nTime] = size(X);
+
+% Optional: remove channel mean across all condition/time samples
+% This reduces static offsets
+Xflat = reshape(X, nChan, []);
+Xflat = Xflat - mean(Xflat, 2);
+X = reshape(Xflat, nChan, nCond, nTime);
+
+% dPCA parameters
+
+nComponents = 11;
+
+% Dimensions after channels:
+% dim 1 = condition
+% dim 2 = time
+combinedParams = {{1}, {2}, {[1 2]}};
+
+margNames = {'Condition', 'Time', 'Condition x Time'};
+
+time=1:size(X,3);
+timeEvents = time(round(length(time)/2));
+margColours = [23 100 171; 187 20 25; 150 150 150]/256;
+
+
+% Run dPCA
+
+[W, V, whichMarg] = dpca(X, nComponents, ...
+    'combinedParams', combinedParams);
+
+% Project data onto dPCA components
+
+Xflat = reshape(X, nChan, []);      % channels x condition*time
+
+Zflat = W' * Xflat;                 % components x condition*time
+
+Z = reshape(Zflat, nComponents, nCond, nTime);
+
+% Reconstruct full data from all dPCA components
+
+Xhat_flat = V * Zflat;
+
+R2_total = 1 - norm(Xflat - Xhat_flat, 'fro')^2 / norm(Xflat, 'fro')^2;
+
+% Reconstruction by marginalization
+
+condComps = find(whichMarg == 1);
+timeComps = find(whichMarg == 2);
+intComps  = find(whichMarg == 3);
+
+vafMarg = nan(3,1);
+
+for m = 1:3
+    comps = find(whichMarg == m);
+
+    Zm = W(:,comps)' * Xflat;
+    Xhat_m = V(:,comps) * Zm;
+
+    vafMarg(m) = 1 - norm(Xflat - Xhat_m, 'fro')^2 / norm(Xflat, 'fro')^2;
+end
+
+fprintf('Total dPCA VAF: %.3f\n', R2_total);
+fprintf('Condition VAF: %.3f\n', vafMarg(1));
+fprintf('Time VAF: %.3f\n', vafMarg(2));
+fprintf('Condition x Time VAF: %.3f\n', vafMarg(3));
+
+% Plot component trajectories
+
+timeAxis = 1:nTime;
+
+figure;
+for k = 1:nComponents
+    subplot(nComponents,1,k); hold on;
+
+    for c = 1:nCond
+        plot(timeAxis, squeeze(Z(k,c,:)), 'LineWidth', 1.2);
+    end
+
+    ylabel(sprintf('dPC %d', k));
+
+    if k == 1
+        legend(arrayfun(@(x) sprintf('Cond %d', x), 1:nCond, ...
+            'UniformOutput', false));
+    end
+end
+xlabel('Time');
+
+
+ explVar = dpca_explainedVariance(X, W, V, ...
+        'combinedParams', combinedParams);
+
+dpca_plot(X, W, V, @dpca_plot_default, ...
+    'explainedVar', explVar, ...
+    'marginalizationNames', margNames, ...
+    'marginalizationColours', margColours, ...
+    'whichMarg', whichMarg,                 ...
+    'time', time,                        ...
+    'timeEvents', timeEvents,               ...
+    'timeMarginalization', 3, ...
+    'legendSubplot', 16,...
+    'numCompToShow',15);
+
+
+
+%% dPCA code cross validated
+
+
+a = chdata_trauma - chdata_neutral;
+b = chdata_trauma_imag - chdata_neutral_imag;
+
+
+% experimental
+% idx_snippet = 2e3:5e3;
+% idx_imag = 8.5e3:11.5e3;
+
+
+% control
+idx_snippet = 100:0.95e3;
+idx_imag = 100:0.95e3;
+
+
+a=a(:,idx_snippet,:);
+b=b(:,idx_imag,:);
+
+snippet=a;
+imag_condn = b;
+
+% Leave-one-subject-out dPCA CV
+% snippet:    channels x time x subjects
+% imag_condn: channels x time x subjects
+
+snippet    = double(snippet);
+imag_condn = double(imag_condn);
+
+[nChan, nTime, nSubj] = size(snippet);
+
+nComponents = 11;
+
+% dPCA input format will be:
+% channels x conditions x time
+% condition 1 = snippet
+% condition 2 = imag
+
+combinedParams = {{1}, {2}, {[1 2]}};
+margNames = {'Condition', 'Time', 'Condition x Time'};
+
+vaf_total = nan(nSubj,1);
+vaf_marg  = nan(nSubj,3);  % columns: condition, time, condition x time
+
+for s = 1:nSubj
+
+    fprintf('LOSO subject %d/%d\n', s, nSubj);
+
+    trainIdx = setdiff(1:nSubj, s);
+
+    % Build 29-subject average training data
+
+    snip_train = mean(snippet(:,:,trainIdx), 3);      % channels x time
+    imag_train = mean(imag_condn(:,:,trainIdx), 3);   % channels x time
+
+    Xtrain = nan(nChan, 2, nTime);
+    Xtrain(:,1,:) = snip_train;
+    Xtrain(:,2,:) = imag_train;
+
+    % Held-out subject test data
+
+    snip_test = snippet(:,:,s);       % channels x time
+    imag_test = imag_condn(:,:,s);    % channels x time
+
+    Xtest = nan(nChan, 2, nTime);
+    Xtest(:,1,:) = snip_test;
+    Xtest(:,2,:) = imag_test;
+
+    % Optional centering
+    % Remove channel mean over condition x time.
+    % Apply centering separately to train and test.
+
+    Xtrain_flat = reshape(Xtrain, nChan, []);
+    Xtest_flat  = reshape(Xtest,  nChan, []);
+
+    Xtrain_flat = Xtrain_flat - mean(Xtrain_flat, 2);
+    Xtest_flat  = Xtest_flat  - mean(Xtest_flat,  2);
+
+    Xtrain = reshape(Xtrain_flat, nChan, 2, nTime);
+    Xtest  = reshape(Xtest_flat,  nChan, 2, nTime);
+
+    % Fit dPCA on 29-subject average
+
+    [W, V, whichMarg] = dpca(Xtrain, nComponents, ...
+        'combinedParams', combinedParams);
+
+    % Test reconstruction on held-out subject
+
+    Xtest_flat = reshape(Xtest, nChan, []);
+
+    Ztest = W' * Xtest_flat;
+    Xhat  = V * Ztest;
+
+    vaf_total(s) = 1 - norm(Xtest_flat - Xhat, 'fro')^2 / ...
+                       norm(Xtest_flat, 'fro')^2;
+
+    % Marginalization-specific VAF
+
+    for m = 1:3
+        comps = find(whichMarg == m);
+
+        Zm = W(:,comps)' * Xtest_flat;
+        Xhat_m = V(:,comps) * Zm;
+
+        vaf_marg(s,m) = 1 - norm(Xtest_flat - Xhat_m, 'fro')^2 / ...
+                            norm(Xtest_flat, 'fro')^2;
+    end
+end
+
+% Summary
+
+fprintf('\nLOSO dPCA results:\n');
+fprintf('Total VAF: %.3f ± %.3f SEM\n', ...
+    mean(vaf_total), std(vaf_total)/sqrt(nSubj));
+
+fprintf('Condition VAF: %.3f ± %.3f SEM\n', ...
+    mean(vaf_marg(:,1)), std(vaf_marg(:,1))/sqrt(nSubj));
+
+fprintf('Time VAF: %.3f ± %.3f SEM\n', ...
+    mean(vaf_marg(:,2)), std(vaf_marg(:,2))/sqrt(nSubj));
+
+fprintf('Condition x Time VAF: %.3f ± %.3f SEM\n', ...
+    mean(vaf_marg(:,3)), std(vaf_marg(:,3))/sqrt(nSubj));
+
+vaf_base=vaf_marg;
+[p_time,~,stats_time] = signrank(vaf_task(:,2), vaf_base(:,2));
+[p_int,~,stats_int] = signrank(vaf_task(:,3), vaf_base(:,3));
+p_time
+p_int
+
+
+figure;
+boxplot([vaf_task(:,2) vaf_base(:,2)])
+
+figure;
+boxplot([vaf_task(:,3) vaf_base(:,3)])
+

@@ -1,4 +1,4 @@
-function [prin_angles] = compute_prin_angles_PC(dataTensor,k)
+function [prin_angles] = compute_prin_angles_PC_Ana(dataTensor,k)
 %function [prin_angles] = compute_prin_angles_PC(dataTensor)
 %dataTensor -> time X channels X conditions
 prin_angles=[];
@@ -13,3 +13,9 @@ for i=1:size(dataTensor,3)
     end
 end
 end
+
+
+    num = (c22(:,1:dim)*c22(:,1:dim)')*(c11(:,1:dim)*c11(:,1:dim)')*...
+        (c22(:,1:dim)*c22(:,1:dim)');
+    den = c11(:,1:dim)*c11(:,1:dim)';
+    pcap_baseline(i,:) = trace(num)/trace(den);
