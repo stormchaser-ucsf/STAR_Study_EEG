@@ -651,7 +651,7 @@ plot_beautify
 % title([' p = ' num2str(1-sum(pcap>=pcap_baseline)/length(pcap_baseline))])
 % 
 
-%% dPCA, cross-validated
+%% dPCA, testing
 
 addpath('/home/user/Documents/Repositories/dPCA/matlab')
 a = chdata_trauma - chdata_neutral;
@@ -660,15 +660,15 @@ b = chdata_trauma_imag - chdata_neutral_imag;
 b = squeeze(mean(b,3));
 
 % experimental 
-% idx_snippet = 2e3:5e3;
-% idx_imag = 8.5e3:11.5e3;
+idx_snippet = 2e3:5e3;
+idx_imag = 8.5e3:11.5e3;
 
 % control
 % idx_snippet = 1:1e3;
 % idx_imag = 1:1e3;
 
-idx_snippet = 100:900;
-idx_imag = 100:900;
+% idx_snippet = 100:900;
+% idx_imag = 100:900;
 
 
 a=a(:,idx_snippet)';
@@ -683,125 +683,199 @@ X =  dataTensor1; % channels X conditions X time
 
 
 X = double(X);
-
 [nChan, nCond, nTime] = size(X);
 
-% Optional: remove channel mean across all condition/time samples
-% This reduces static offsets
-Xflat = reshape(X, nChan, []);
-Xflat = Xflat - mean(Xflat, 2);
-X = reshape(Xflat, nChan, nCond, nTime);
+% Optional: remove mean of each condition 
+for i=1:size(X,2)
+    tmp = squeeze(X(:,i,:));
+    tmp = tmp - mean(tmp,2);
+    X(:,i,:)=tmp;
+end
 
 % dPCA parameters
-
-nComponents = 11;
-
 % Dimensions after channels:
 % dim 1 = condition
 % dim 2 = time
-combinedParams = {{1}, {2}, {[1 2]}};
-
-margNames = {'Condition', 'Time', 'Condition x Time'};
+% looking at time modes and condition-specific modes. former extracts
+% common temporal dynamics and latter extracts condition-specific temporal
+% dynamics
+nComponents = 11;
+combinedParams = {{1, [1 2]}, {2}};
+margNames = {'Condition-related', 'Time'};
+% combinedParams = {{1}, {2}, {[1 2]}};
+% margNames = {'Condition', 'Time', 'Condition x Time'};
 
 time=1:size(X,3);
 timeEvents = time(round(length(time)/2));
-margColours = [23 100 171; 187 20 25; 150 150 150]/256;
-
+margColours = [23 100 171; 187 20 25]/256;
 
 % Run dPCA
-
 [W, V, whichMarg] = dpca(X, nComponents, ...
     'combinedParams', combinedParams);
 
-% Project data onto dPCA components
-
-Xflat = reshape(X, nChan, []);      % channels x condition*time
-
-Zflat = W' * Xflat;                 % components x condition*time
-
-Z = reshape(Zflat, nComponents, nCond, nTime);
-
-% Reconstruct full data from all dPCA components
-
-Xhat_flat = V * Zflat;
-
-R2_total = 1 - norm(Xflat - Xhat_flat, 'fro')^2 / norm(Xflat, 'fro')^2;
-
-% Reconstruction by marginalization
-
-condComps = find(whichMarg == 1);
-timeComps = find(whichMarg == 2);
-intComps  = find(whichMarg == 3);
-
-vafMarg = nan(3,1);
-
-for m = 1:3
-    comps = find(whichMarg == m);
-
-    Zm = W(:,comps)' * Xflat;
-    Xhat_m = V(:,comps) * Zm;
-
-    vafMarg(m) = 1 - norm(Xflat - Xhat_m, 'fro')^2 / norm(Xflat, 'fro')^2;
-end
-
-fprintf('Total dPCA VAF: %.3f\n', R2_total);
-fprintf('Condition VAF: %.3f\n', vafMarg(1));
-fprintf('Time VAF: %.3f\n', vafMarg(2));
-fprintf('Condition x Time VAF: %.3f\n', vafMarg(3));
-
-% Plot component trajectories
-
-timeAxis = 1:nTime;
-
-figure;
-for k = 1:nComponents
-    subplot(nComponents,1,k); hold on;
-
-    for c = 1:nCond
-        plot(timeAxis, squeeze(Z(k,c,:)), 'LineWidth', 1.2);
-    end
-
-    ylabel(sprintf('dPC %d', k));
-
-    if k == 1
-        legend(arrayfun(@(x) sprintf('Cond %d', x), 1:nCond, ...
-            'UniformOutput', false));
-    end
-end
-xlabel('Time');
-
-
- explVar = dpca_explainedVariance(X, W, V, ...
+% plot dPCA
+explVar = dpca_explainedVariance(X, W, V, ...
         'combinedParams', combinedParams);
 
 dpca_plot(X, W, V, @dpca_plot_default, ...
     'explainedVar', explVar, ...
-    'marginalizationNames', margNames, ...
-    'marginalizationColours', margColours, ...
+    'marginalizationNames', margNames, ...    
     'whichMarg', whichMarg,                 ...
     'time', time,                        ...
     'timeEvents', timeEvents,               ...
     'timeMarginalization', 3, ...
     'legendSubplot', 16,...
-    'numCompToShow',15);
+    'numCompToShow',11);
 
+
+% Project data onto dPCA components
+Xflat = reshape(X, nChan, []);      % channels x condition*time
+Zflat = W' * Xflat;                 % components x condition*time
+Z = reshape(Zflat, nComponents, nCond, nTime);
+
+
+% plot dPCA components
+condn_modes = find(whichMarg==1);
+figure;
+for i=1:3
+    tmp = squeeze(Z(condn_modes(i),:,:))';
+    subplot(1,3,i)
+    plot(tmp,'LineWidth',1)
+    legend({'Snippet','Imag.'})
+    plot_beautify
+end
+sgtitle('Condition-specific temporal dynamics')
+plot_beautify
+
+time_modes = find(whichMarg==2);
+figure;
+for i=1:3
+    tmp = squeeze(Z(time_modes(i),:,:))';
+    subplot(1,3,i)
+    plot(tmp,'LineWidth',1)
+    legend({'Snippet','Imag.'})
+    plot_beautify
+end
+sgtitle('Common temporal dynamics')
+plot_beautify
+
+
+% plot on brain
+figure;
+for i=1:3
+    subplot(1,3,i)
+    tmp = V(:,time_modes(i));
+    topoplot(tmp,EEG.chanlocs);
+    axis tight
+end
+plot_beautify
+sgtitle('Time dPCs')
+
+figure;
+for i=1:3
+    subplot(1,3,i)
+    tmp = W(:,condn_modes(i));
+    topoplot(tmp,EEG.chanlocs);
+    axis tight
+end
+plot_beautify
+sgtitle('Condition-specific dPCs')
+
+
+
+% 
+% % Reconstruct full data from all dPCA components
+% 
+% Xhat_flat = V * Zflat;
+% 
+% R2_total = 1 - norm(Xflat - Xhat_flat, 'fro')^2 / norm(Xflat, 'fro')^2;
+% 
+% % Reconstruction by marginalization
+% 
+% condComps = find(whichMarg == 1);
+% timeComps = find(whichMarg == 2);
+% intComps  = find(whichMarg == 3);
+% 
+% vafMarg = nan(3,1);
+% 
+% for m = 1:3
+%     comps = find(whichMarg == m);
+% 
+%     Zm = W(:,comps)' * Xflat;
+%     Xhat_m = V(:,comps) * Zm;
+% 
+%     vafMarg(m) = 1 - norm(Xflat - Xhat_m, 'fro')^2 / norm(Xflat, 'fro')^2;
+% end
+% 
+% fprintf('Total dPCA VAF: %.3f\n', R2_total);
+% fprintf('Condition VAF: %.3f\n', vafMarg(1));
+% fprintf('Time VAF: %.3f\n', vafMarg(2));
+% fprintf('Condition x Time VAF: %.3f\n', vafMarg(3));
+% 
+% % Plot component trajectories
+% 
+% timeAxis = 1:nTime;
+% 
+% figure;
+% for k = 1:nComponents
+%     subplot(nComponents,1,k); hold on;
+% 
+%     for c = 1:nCond
+%         plot(timeAxis, squeeze(Z(k,c,:)), 'LineWidth', 1.2);
+%     end
+% 
+%     ylabel(sprintf('dPC %d', k));
+% 
+%     if k == 1
+%         legend(arrayfun(@(x) sprintf('Cond %d', x), 1:nCond, ...
+%             'UniformOutput', false));
+%     end
+% end
+% xlabel('Time');
+% 
+% 
+% explVar = dpca_explainedVariance(X, W, V, ...
+%         'combinedParams', combinedParams);
+% 
+% dpca_plot(X, W, V, @dpca_plot_default, ...
+%     'explainedVar', explVar, ...
+%     'marginalizationNames', margNames, ...
+%     'marginalizationColours', margColours, ...
+%     'whichMarg', whichMarg,                 ...
+%     'time', time,                        ...
+%     'timeEvents', timeEvents,               ...
+%     'timeMarginalization', 3, ...
+%     'legendSubplot', 16,...
+%     'numCompToShow',11);
+% 
+% 
+% dpca_plot(X, W, V, @dpca_plot_default, ...
+%     'explainedVar', explVar, ...
+%     'marginalizationNames', margNames, ...    
+%     'whichMarg', whichMarg,                 ...
+%     'time', time,                        ...
+%     'timeEvents', timeEvents,               ...
+%     'timeMarginalization', 3, ...
+%     'legendSubplot', 16,...
+%     'numCompToShow',11);
 
 
 %% dPCA code cross validated
+%(MAIN)
 
-
+addpath('/home/user/Documents/Repositories/dPCA/matlab')
 a = chdata_trauma - chdata_neutral;
 b = chdata_trauma_imag - chdata_neutral_imag;
 
 
 % experimental
-% idx_snippet = 2e3:5e3;
-% idx_imag = 8.5e3:11.5e3;
+idx_snippet = 2e3:5e3;
+idx_imag = 8.5e3:11.5e3;
 
 
 % control
-idx_snippet = 100:0.95e3;
-idx_imag = 100:0.95e3;
+% idx_snippet = 100:1e3;
+% idx_imag = 100:1e3;
 
 
 a=a(:,idx_snippet,:);
@@ -826,11 +900,15 @@ nComponents = 11;
 % condition 1 = snippet
 % condition 2 = imag
 
-combinedParams = {{1}, {2}, {[1 2]}};
-margNames = {'Condition', 'Time', 'Condition x Time'};
+% combinedParams = {{1}, {2}, {[1 2]}};
+% margNames = {'Condition', 'Time', 'Condition x Time'};
+
+combinedParams = {{1, [1 2]}, {2}};
+margNames = {'Condition-related', 'Time'};
+
 
 vaf_total = nan(nSubj,1);
-vaf_marg  = nan(nSubj,3);  % columns: condition, time, condition x time
+vaf_marg  = nan(nSubj,2);  % columns: condition, time
 
 for s = 1:nSubj
 
@@ -839,19 +917,15 @@ for s = 1:nSubj
     trainIdx = setdiff(1:nSubj, s);
 
     % Build 29-subject average training data
-
     snip_train = mean(snippet(:,:,trainIdx), 3);      % channels x time
     imag_train = mean(imag_condn(:,:,trainIdx), 3);   % channels x time
-
     Xtrain = nan(nChan, 2, nTime);
     Xtrain(:,1,:) = snip_train;
     Xtrain(:,2,:) = imag_train;
 
     % Held-out subject test data
-
     snip_test = snippet(:,:,s);       % channels x time
     imag_test = imag_condn(:,:,s);    % channels x time
-
     Xtest = nan(nChan, 2, nTime);
     Xtest(:,1,:) = snip_test;
     Xtest(:,2,:) = imag_test;
@@ -859,34 +933,29 @@ for s = 1:nSubj
     % Optional centering
     % Remove channel mean over condition x time.
     % Apply centering separately to train and test.
-
-    Xtrain_flat = reshape(Xtrain, nChan, []);
-    Xtest_flat  = reshape(Xtest,  nChan, []);
-
-    Xtrain_flat = Xtrain_flat - mean(Xtrain_flat, 2);
-    Xtest_flat  = Xtest_flat  - mean(Xtest_flat,  2);
-
-    Xtrain = reshape(Xtrain_flat, nChan, 2, nTime);
-    Xtest  = reshape(Xtest_flat,  nChan, 2, nTime);
-
+    % for i=1:2
+    %     tmp = squeeze(Xtrain(:,i,:));
+    %     tmp = tmp-mean(tmp,2);
+    %     Xtrain(:,i,:) = tmp;
+    % 
+    %     tmp = squeeze(Xtest(:,i,:));
+    %     tmp = tmp-mean(tmp,2);
+    %     Xtest(:,i,:) = tmp;
+    % end
+    
     % Fit dPCA on 29-subject average
-
     [W, V, whichMarg] = dpca(Xtrain, nComponents, ...
         'combinedParams', combinedParams);
 
     % Test reconstruction on held-out subject
-
     Xtest_flat = reshape(Xtest, nChan, []);
-
     Ztest = W' * Xtest_flat;
     Xhat  = V * Ztest;
-
     vaf_total(s) = 1 - norm(Xtest_flat - Xhat, 'fro')^2 / ...
                        norm(Xtest_flat, 'fro')^2;
 
     % Marginalization-specific VAF
-
-    for m = 1:3
+    for m = 1:length(unique(whichMarg))
         comps = find(whichMarg == m);
 
         Zm = W(:,comps)' * Xtest_flat;
@@ -909,19 +978,100 @@ fprintf('Condition VAF: %.3f ± %.3f SEM\n', ...
 fprintf('Time VAF: %.3f ± %.3f SEM\n', ...
     mean(vaf_marg(:,2)), std(vaf_marg(:,2))/sqrt(nSubj));
 
-fprintf('Condition x Time VAF: %.3f ± %.3f SEM\n', ...
-    mean(vaf_marg(:,3)), std(vaf_marg(:,3))/sqrt(nSubj));
+if size(vaf_marg,2)>2
+    fprintf('Condition x Time VAF: %.3f ± %.3f SEM\n', ...
+        mean(vaf_marg(:,3)), std(vaf_marg(:,3))/sqrt(nSubj));
+end
 
-vaf_base=vaf_marg;
+%% PLOTTING AND STATS FROM ABOVE
+%vaf_base=vaf_marg;
+[p_condn,~,stats_condn] = signrank(vaf_task(:,1), vaf_base(:,1));
 [p_time,~,stats_time] = signrank(vaf_task(:,2), vaf_base(:,2));
-[p_int,~,stats_int] = signrank(vaf_task(:,3), vaf_base(:,3));
+p_condn
 p_time
-p_int
 
+figure;
+boxplot([vaf_task(:,1) vaf_base(:,1)])
+title('Condition-specific VAF')
+xticks(1:2)
+xticklabels({'Task','Baseline'})
+plot_beautify
+ylabel('Cross-valdiated VAF')
+ylim([-0.5 1])
 
 figure;
 boxplot([vaf_task(:,2) vaf_base(:,2)])
+title('Time VAF')
+xticks(1:2)
+xticklabels({'Task','Baseline'})
+plot_beautify
+ylabel('Cross-valdiated VAF')
+plot_beautify
+ylabel('Cross-valdiated VAF')
+ylim([-0.5 1])
 
-figure;
-boxplot([vaf_task(:,3) vaf_base(:,3)])
+
+%%%%% plot all at once 
+data = [vaf_task vaf_base];
+
+figure; hold on
+
+% Reorder/group data for plotting
+Y = data;
+
+% Boxplot positions
+%pos = [1 2 4 5];
+pos = [1 2 3.5 4.5];
+
+boxplot(Y, ...
+    'Positions', pos, ...
+    'Labels', {'Condition','Common','Condition','Common'}, ...
+    'Widths', 0.5);
+
+ylabel('Cross-validated dPC VAF');
+
+% Color boxes
+h = findobj(gca,'Tag','Box');
+h = flipud(h); % match plotting order
+
+taskColor = [0.2 0.45 0.85];
+baseColor = [0.85 0.35 0.35];
+
+colors = [taskColor; taskColor; baseColor; baseColor];
+
+for i = 1:4
+    patch(get(h(i),'XData'), get(h(i),'YData'), colors(i,:), ...
+        'FaceAlpha', 0.35, ...
+        'EdgeColor', colors(i,:), ...
+        'LineWidth', 1.5);
+end
+
+% Re-draw median lines on top
+med = findobj(gca,'Tag','Median');
+set(med, 'Color', 'k', 'LineWidth', 1.5);
+
+% Add legend
+p1 = patch(nan, nan, taskColor, 'FaceAlpha', 0.35);
+p2 = patch(nan, nan, baseColor, 'FaceAlpha', 0.35);
+legend([p1 p2], {'Task','Baseline'}, 'Location', 'best');
+
+% Add group labels
+xticks(pos);
+xticklabels({'Condition','Common','Condition','Common'});
+
+text(mean(pos(1:2)), min(ylim)-0.08*range(ylim), 'Task', ...
+    'HorizontalAlignment','center', 'FontWeight','bold');
+
+text(mean(pos(3:4)), min(ylim)-0.08*range(ylim), 'Baseline', ...
+    'HorizontalAlignment','center', 'FontWeight','bold');
+
+set(gca, 'FontSize', 12, 'Box', 'off');
+title('Cross-validated dPCA VAF');
+ylim([-.5 .75])
+plot_beautify
+
+
+
+[p_condn,~,stats_condn] = signrank(vaf_task(:,1), vaf_base(:,1));p_condn
+[p_time,~,stats_time] = signrank(vaf_task(:,2), vaf_base(:,2));p_time
 
