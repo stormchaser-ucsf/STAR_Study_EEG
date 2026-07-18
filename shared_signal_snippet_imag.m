@@ -485,8 +485,8 @@ ylabel('Cross-validated VAF')
 angles_baseline=[];
 % idx_snippet_baseline = [1:1e3  6e3:7e3];
 % idx_imag_baseline = [1:1e3  13e3:14e3];
-idx_snippet_baseline = [100:1e3 ];
-idx_imag_baseline = [100:1e3 ];
+idx_snippet_baseline = [100:0.9e3 ];%100:1e3 old
+idx_imag_baseline = [100:0.9e3 ];
 pcap_baseline=[];
 dim=11;
 pcap_sweep_boot=[];
@@ -868,15 +868,16 @@ a = chdata_trauma - chdata_neutral;
 b = chdata_trauma_imag - chdata_neutral_imag;
 
 
-% experimental
-idx_snippet = 2e3:5e3;
-idx_imag = 8.5e3:11.5e3;
+% experimental / control
+ch=1;
+if ch==1 % experimental    
+    idx_snippet = 2e3:5e3;
+    idx_imag = 8.5e3:11.5e3;
 
-
-% control
-% idx_snippet = 100:1e3;
-% idx_imag = 100:1e3;
-
+else % control
+    idx_snippet = 100:0.9e3;
+    idx_imag = 100:0.9e3;
+end
 
 a=a(:,idx_snippet,:);
 b=b(:,idx_imag,:);
@@ -910,6 +911,20 @@ margNames = {'Condition-related', 'Time'};
 vaf_total = nan(nSubj,1);
 vaf_marg  = nan(nSubj,2);  % columns: condition, time
 
+% run on all subjects and save model
+fprintf('Running on all subjects\n');
+trainIdx =1:nSubj;
+snip_train = mean(snippet(:,:,trainIdx), 3);      % channels x time
+imag_train = mean(imag_condn(:,:,trainIdx), 3);   % channels x time
+Xtrain = nan(nChan, 2, nTime);
+Xtrain(:,1,:) = snip_train;
+Xtrain(:,2,:) = imag_train;
+[Wtotal, Vtotal, whichMarg_total] = dpca(Xtrain, nComponents, ...
+    'combinedParams', combinedParams);
+save dPCA_Shared_AllSubj Wtotal Vtotal whichMarg_total -v7.3
+
+
+% cross validation
 for s = 1:nSubj
 
     fprintf('LOSO subject %d/%d\n', s, nSubj);
@@ -982,6 +997,13 @@ if size(vaf_marg,2)>2
     fprintf('Condition x Time VAF: %.3f ± %.3f SEM\n', ...
         mean(vaf_marg(:,3)), std(vaf_marg(:,3))/sqrt(nSubj));
 end
+
+if length(idx_snippet) > 2e3
+    vaf_task = vaf_marg;
+else
+    vaf_base = vaf_marg;
+end
+
 
 %% PLOTTING AND STATS FROM ABOVE
 %vaf_base=vaf_marg;
@@ -1074,4 +1096,60 @@ plot_beautify
 
 [p_condn,~,stats_condn] = signrank(vaf_task(:,1), vaf_base(:,1));p_condn
 [p_time,~,stats_time] = signrank(vaf_task(:,2), vaf_base(:,2));p_time
+
+%% DETECTING IF SHARED SIGNAL IS REPLAYED IN SLEEP
+
+
+clc;clear
+close all
+
+% adding paths
+if ispc
+    addpath(genpath('C:\Users\nikic\Documents\MATLAB\Ana EEG\hdEEG_Trauma_PTSD\SAGA_Matlab\SAGA_interface'))
+    root_path = 'F:\DATA\EEG Data Anne Richards\STAR\STAR_Pilot_data-selected\Pilot18';
+    root_path='F:\DATA\EEG Data Anne Richards\STAR\Phase 2\Snippet_Datasets_Processed';
+else
+    addpath(genpath('/home/user/Documents/Repositories/STAR_Study_EEG/SAGA_Matlab/SAGA_interface'))
+    addpath(genpath('/home/user/Documents/Repositories/STAR_Study_EEG'))
+    addpath('/home/user/Documents/MATLAB/eeglab2023.1')    
+    addpath('/home/user/Documents/MATLAB')    
+    root_path = '/media/user/Data/Ana EEG/STAR/Phase 2/';
+end
+
+cd('/media/user/Data/Ana EEG/STAR/Phase 2/Participant 24027/')
+eeglab
+Poly5toEEGlab
+
+
+% load the dataset
+% EEG = pop_loadset('filename','24014_snippet-20250226T125238.set','filepath',...
+%     'F:\DATA\EEG Data Anne Richards\STAR\Phase 2\Participant 24014\');
+% [ALLEEG, EEG, CURRENTSET] = eeg_store( ALLEEG, EEG, 0 );
+
+
+% call the functions to load the SAGA datafile
+%Poly5toEEGlab
+%eeglab redraw
+
+%%%% perform sleep analyses filter and clean data
+data = EEG.data;
+d1 = designfilt('bandpassiir','FilterOrder',4, ...
+    'HalfPowerFrequency1',0.1,'HalfPowerFrequency2',35, ...
+    'SampleRate',EEG.srate);
+
+data1 = filtfilt(d1,data')';
+
+% reference to M1 and M2, channels 1 to 68
+ref = data1([13 19],:);
+ref = mean(ref,1);
+data1(1:68,:) = data1(1:68,:) - ref;
+
+
+
+%%%% look at shared variance projection 
+
+
+
+
+
 
