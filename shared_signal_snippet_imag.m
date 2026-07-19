@@ -1116,9 +1116,13 @@ else
     root_path = '/media/user/Data/Ana EEG/STAR/Phase 2/';
 end
 
-cd('/media/user/Data/Ana EEG/STAR/Phase 2/Participant 24027/')
+cd('/media/user/Data/Ana EEG/STAR/Phase 2/Participant 24021/')
 eeglab
-Poly5toEEGlab
+%Poly5toEEGlab
+
+% load dPC axes
+cd('/media/user/Data/Ana EEG/STAR/Phase 2')
+load dPCA_Shared_AllSubj
 
 
 % load the dataset
@@ -1136,19 +1140,206 @@ data = EEG.data;
 d1 = designfilt('bandpassiir','FilterOrder',4, ...
     'HalfPowerFrequency1',0.1,'HalfPowerFrequency2',35, ...
     'SampleRate',EEG.srate);
-
 data1 = filtfilt(d1,data')';
 
 % reference to M1 and M2, channels 1 to 68
 ref = data1([13 19],:);
 ref = mean(ref,1);
 data1(1:68,:) = data1(1:68,:) - ref;
+EEG.data = data1;
+eeglab redraw
 
+% remove bad channels 
+EEG = pop_select( EEG, 'rmchannel',{'M1','M2','SpO2','PLETH','HRate','Stat','TRIGGERS1',...
+    'TRIGGERS2','TRIGGERS3','TRIGGERS4','TRIGGERS5','TRIGGERS6','TRIGGERS7','TRIGGERS8',...
+    'TRIGGERS9','TRIGGERS10','TRIGGERS11','TRIGGERS12','TRIGGERS13','TRIGGERS14','TRIGGERS15',...
+    'TRIGGERS16','STATUS','Counter 2power24','BIP 01','BIP 02','BIP 03','BIP 04'});
+[ALLEEG EEG CURRENTSET] = pop_newset(ALLEEG, EEG, 2,'overwrite','on','gui','off');
+eeglab redraw
 
 
 %%%% look at shared variance projection 
+%% Sleep replay with 50% overlap:
+% condition-specific dPCs vs time dPCs vs random manifolds
+%
+% data            = sleep EEG, channels x samples
+% Fs              = 1000
+% Wtotal          = dPCA decoder axes, channels x components
+% Vtotal          = dPCA encoder axes, channels x components
+% whichMarg_total = marginalization labels
+%
+% Assumes:
+% whichMarg_total == 1 : condition-specific dPCs
+% whichMarg_total == 2 : time dPCs
 
+data=EEG.data;
 
+% Parameters
+
+Fs = 1000;
+winSec = 3;
+winSamp = winSec * Fs;
+stepSamp = winSamp/2;       % 50% overlap = 1.5 s step
+
+nDim = 11;
+nNull = 50;
+
+Xsleep = double(data);      % channels x samples
+
+[nChan, nSamples] = size(Xsleep);
+
+startIdx = 1:stepSamp:(nSamples - winSamp + 1);
+nWins = numel(startIdx);
+
+fprintf('Number of 3 s windows with 50%% overlap = %d\n', nWins);
+
+% Select dPCs
+
+condComps_all = find(whichMarg_total == 1);
+timeComps_all = find(whichMarg_total == 2);
+
+% Restrict to first 11 dPCs
+condComps = condComps_all(condComps_all <= nDim);
+timeComps = timeComps_all(timeComps_all <= nDim);
+
+nCondComps = numel(condComps);
+
+fprintf('Condition-specific comps:\n');
+disp(condComps);
+
+fprintf('Time comps:\n');
+disp(timeComps);
+
+% Preallocate
+
+vaf_cond = nan(nWins,1);
+vaf_time = nan(nWins,1);
+
+vaf_null = nan(nWins,nNull);
+
+% Main loop
+
+parfor w = 1:nWins
+
+    idx1 = startIdx(w);
+    idx2 = idx1 + winSamp - 1;
+
+    Xwin = Xsleep(:,idx1:idx2);       % channels x time
+    Xwin = Xwin - mean(Xwin,2);       % center each channel
+
+    denom = norm(Xwin,'fro')^2;
+
+    if denom == 0 || any(isnan(Xwin(:)))
+        continue
+    end
+
+    % Condition-specific dPC VAF
+
+    Zcond = Wtotal(:,condComps)' * Xwin;
+    Xhat_cond = Vtotal(:,condComps) * Zcond;
+
+    vaf_cond(w) = 1 - norm(Xwin - Xhat_cond,'fro')^2 / denom;
+
+    % Time dPC VAF
+
+    Ztime = Wtotal(:,timeComps)' * Xwin;
+    Xhat_time = Vtotal(:,timeComps) * Ztime;
+
+    vaf_time(w) = 1 - norm(Xwin - Xhat_time,'fro')^2 / denom;
+
+    % Random manifold null
+    % Same dimensionality as condition-specific dPC subspace
+
+    for p = 1:nNull
+
+        A = randn(nChan, nCondComps);
+        [Q,~] = qr(A,0);              % random orthonormal manifold
+
+        Xhat_null = Q * Q' * Xwin;
+
+        vaf_null(w,p) = 1 - norm(Xwin - Xhat_null,'fro')^2 / denom;
+    end
+end
+
+% Null confidence intervals per sleep window
+
+null_mean = mean(vaf_null,2,'omitnan');
+null_lo   = prctile(vaf_null,2.5,2);
+null_hi   = prctile(vaf_null,97.5,2);
+
+% Time axis
+
+tMin = (startIdx + winSamp/2 - 1) / Fs / 60;
+
+% Plot
+
+figure; hold on
+
+% Null 95% interval
+fill([tMin fliplr(tMin)], ...
+     [null_lo' fliplr(null_hi')], ...
+     [0.8 0.8 0.8], ...
+     'FaceAlpha',0.4, ...
+     'EdgeColor','none');
+
+plot(tMin, null_mean, '--', 'Color', [0.4 0.4 0.4], 'LineWidth', 1.2);
+plot(tMin, vaf_cond, 'LineWidth', 1.5);
+plot(tMin, vaf_time, 'LineWidth', 1.5);
+
+xlabel('Sleep time (min)');
+ylabel('VAF');
+legend({'Random manifold 95% CI', ...
+        'Random mean', ...
+        'Condition-specific dPCs', ...
+        'Engram dPCs'}, ...
+        'Location','best');
+
+title('Sleep replay VAF onto task dPCA axes');
+box off;
+
+% Summary statistics
+
+fprintf('\nCondition-specific dPC sleep VAF:\n');
+fprintf('Mean ± SEM = %.4f ± %.4f\n', ...
+    mean(vaf_cond,'omitnan'), ...
+    std(vaf_cond,'omitnan')/sqrt(sum(~isnan(vaf_cond))));
+fprintf('Median = %.4f\n', median(vaf_cond,'omitnan'));
+
+fprintf('\nTime dPC sleep VAF:\n');
+fprintf('Mean ± SEM = %.4f ± %.4f\n', ...
+    mean(vaf_time,'omitnan'), ...
+    std(vaf_time,'omitnan')/sqrt(sum(~isnan(vaf_time))));
+fprintf('Median = %.4f\n', median(vaf_time,'omitnan'));
+
+fprintf('\nRandom manifold null VAF:\n');
+fprintf('Mean null = %.4f\n', mean(null_mean,'omitnan'));
+
+% Window-wise significance versus random null
+
+p_cond = nan(nWins,1);
+p_time = nan(nWins,1);
+
+for w = 1:nWins
+    p_cond(w) = (1 + sum(vaf_null(w,:) >= vaf_cond(w))) / (1 + nNull);
+    p_time(w) = (1 + sum(vaf_null(w,:) >= vaf_time(w))) / (1 + nNull);
+end
+
+sig_cond = p_cond < 0.05;
+sig_time = p_time < 0.05;
+
+fprintf('\nFraction significant windows, condition-specific vs null: %.3f\n', ...
+    mean(sig_cond,'omitnan'));
+
+fprintf('Fraction significant windows, time dPCs vs null: %.3f\n', ...
+    mean(sig_time,'omitnan'));
+
+% Compare condition-specific vs time dPC VAF across windows
+
+[p_cond_vs_time,~,stats_cond_vs_time] = signrank(vaf_cond, vaf_time);
+
+fprintf('\nCondition-specific vs Time dPC VAF across windows:\n');
+fprintf('p = %.4g, signedrank = %.3f\n', ...
+    p_cond_vs_time, stats_cond_vs_time.signedrank);
 
 
 
