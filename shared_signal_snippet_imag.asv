@@ -1308,44 +1308,10 @@ xlim([0 110])
 plot_beautify
 ylim([-1 0.75])
 
+% boxplots
+tmp
 
-%%%% boxplots
-data1 = [vaf_cond vaf_time];
-figure; hold on
-boxplot(data1, ...
-    'Labels', {'Condition-specific','Engram'}, ...
-    'Symbol', '', ...        % hides outliers
-    'Widths', 0.5);
-
-% Get box handles
-h = findobj(gca, 'Tag', 'Box');
-h = flipud(h);   % makes order match columns
-
-% Colors
-colors = [
-    0.2 0.45 0.85;   % box 1
-    0.85 0.35 0.35   % box 2
-];
-
-% Shade boxes
-for i = 1:2
-    patch(get(h(i),'XData'), get(h(i),'YData'), colors(i,:), ...
-        'FaceAlpha', 0.35, ...
-        'EdgeColor', colors(i,:), ...
-        'LineWidth', 1.5);
-end
-
-% Put median lines on top
-med = findobj(gca, 'Tag', 'Median');
-set(med, 'Color', 'k', 'LineWidth', 1.5);
-
-ylabel('VAF');
-box off
-set(gca, 'FontSize', 12);
-xlim([.5 2.5])
-plot_beautify
-
-%%% Summary statistics
+% Summary statistics
 
 fprintf('\nCondition-specific dPC sleep VAF:\n');
 fprintf('Mean ± SEM = %.4f ± %.4f\n', ...
@@ -1520,13 +1486,11 @@ plot(tMin, vaf_base_smooth, 'LineWidth', 2);
 
 xlabel('Sleep time (min)');
 ylabel('Smoothed VAF');
-legend({'Engram', 'Non-task baseline structure'}, ...
+legend({'Task shared/time dPCs', 'Baseline shared/time dPCs'}, ...
     'Location','best');
-xlim([0 120])
 
-title('Sleep reactivation');
+title('Sleep reactivation: smoothed shared dPC VAF');
 box off;
-plot_beautify
 
 % Summary statistics
 
@@ -1602,41 +1566,3 @@ box off;
 xlim([0.5 2.5])
 plot_beautify
 
-
-figure; hold on
-data1 = [block_task, block_base];
-figure; hold on
-boxplot(data1, ...
-    'Labels', {'Engram','Baseline'}, ...
-    'Symbol', '', ...        % hides outliers
-    'Widths', 0.5);
-
-% Get box handles
-h = findobj(gca, 'Tag', 'Box');
-h = flipud(h);   % makes order match columns
-
-% Colors
-colors = [
-    0.2 0.45 0.85;   % box 1
-    0.85 0.35 0.35   % box 2
-];
-
-% Shade boxes
-for i = 1:2
-    patch(get(h(i),'XData'), get(h(i),'YData'), colors(i,:), ...
-        'FaceAlpha', 0.35, ...
-        'EdgeColor', colors(i,:), ...
-        'LineWidth', 1.5);
-end
-
-% Put median lines on top
-med = findobj(gca, 'Tag', 'Median');
-set(med, 'Color', 'k', 'LineWidth', 1.5);
-
-ylabel('Mean VAF per 1-min sleep block');
-title('Sleep reactivation');
-
-box off
-set(gca, 'FontSize', 12);
-xlim([.5 2.5])
-plot_beautify
