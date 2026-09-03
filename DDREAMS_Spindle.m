@@ -16,7 +16,7 @@ if ispc
 
 
 elseif isunix
-    addpath(genpath('/home/user/Documents/Repositories/STAR_Study_EEG/SAGA_Matlab/SAGA_interface'))
+    addpath(genpath('/home/user/Documents/Repositories/STAR_Study_EEG/'))
     addpath('/home/user/Documents/MATLAB/eeglab2023.1')
     %addpath(genpath('C:\Users\nikic\Documents\MATLAB\fieldtrip-20250114'))
     addpath('/home/user/Documents/MATLAB')
@@ -37,6 +37,13 @@ eeglab
 data = EEG.data;
 data = data(1:3,:);
 
+% duration in seconds
+dur = size(data,2)/EEG.srate;
+
+
+% load CSV for sleep staging 
+filename = "/media/user/Data/Ana EEG/DDREAMS/DDREAMS_EBE Sleep Stages-selected/20001_1-3_0000334000214_EpochByEpochDetail/20001_20260124_205200____20210809_122452_0000334000214_EpochByEpochDetail.csv";
+sleep_scores = load_csv(filename);
 
 % filters
 Fs=EEG.srate;
