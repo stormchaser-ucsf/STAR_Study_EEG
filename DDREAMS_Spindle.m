@@ -42,12 +42,34 @@ dur = size(data,2)/EEG.srate;
 
 
 % load CSV for sleep staging 
-filename = "/media/user/Data/Ana EEG/DDREAMS/DDREAMS_EBE Sleep Stages-selected/20001_1-3_0000334000214_EpochByEpochDetail/20001_20260124_205200____20210809_122452_0000334000214_EpochByEpochDetail.csv";
+filepath = '/media/user/Data/Ana EEG/DDREAMS/DDREAMS_EBE Sleep Stages-selected/20001_1-3_0000334000214_EpochByEpochDetail/';
+%filename = "/media/user/Data/Ana EEG/DDREAMS/DDREAMS_EBE Sleep Stages-selected/20001_1-3_0000334000214_EpochByEpochDetail/20001_20260124_205200____20210809_122452_0000334000214_EpochByEpochDetail.csv";
+filename = "20001_N1.csv";
+filename = fullfile(filepath,filename);
 sleep_scores = load_csv(filename);
+
+% for synchronization, this is the key:
+% each epoch from csv is the start of a 30s window, and that 30s will have
+% the associated sleep stage. Build a sleep staging score based on that.
+% The EEG data will usually have some extra bit (<30s) at the end which you
+% can discard. 
+
+sleep_staging=[];
+parfor i = 1:length(sleep_scores.StageFinal)    
+    tmp = sleep_scores.StageFinal(i);
+    tmp = repmat(tmp,30*EEG.srate,1);
+    sleep_staging = [sleep_staging;tmp];
+end
+
+data = data';
+data = data(1:length(sleep_staging),:);
+
+I = zeros(size(sleep_staging));
+I(sleep_staging==2) =1;
+I(sleep_staging==3) =1;
 
 % filters
 Fs=EEG.srate;
-
 
 % low pass filters
 lpFilt = designfilt('bandpassiir','FilterOrder',4, ...
@@ -86,12 +108,16 @@ so_pow = abs(hilbert(so_data));
 figure;
 plot(smooth(so_pow,100))
 
-
-
-
 %detect spindles
-I = sleep_staging>0;
-grid_sp = detect_spindles(data(1:6,:),I,soFilt,spFilt1,spFilt2,sleep_staging,Fs);
+% have to ignore the spike every 15 min so have to set those windows down
+% to zero 
+% get background SO epochs around spindles 
+grid_sp = detect_spindles_DDREAMS(data(1:6,:),I,soFilt,spFilt1,spFilt2,sleep_staging,Fs);
+
+
+
+% detect slow oscillations
+
 
 
 %%%
