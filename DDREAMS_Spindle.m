@@ -53,7 +53,7 @@ sleep_scores = load_csv(filename);
 % the associated sleep stage. Build a sleep staging score based on that.
 % The EEG data will usually have some extra bit (<30s) at the end which you
 % can discard. 
-
+%parpool('threads')
 sleep_staging=[];
 parfor i = 1:length(sleep_scores.StageFinal)    
     tmp = sleep_scores.StageFinal(i);
@@ -61,8 +61,8 @@ parfor i = 1:length(sleep_scores.StageFinal)
     sleep_staging = [sleep_staging;tmp];
 end
 
-data = data';
-data = data(1:length(sleep_staging),:);
+data = data(:,1:length(sleep_staging));
+
 
 I = zeros(size(sleep_staging));
 I(sleep_staging==2) =1;
@@ -96,23 +96,35 @@ deltaFilt = designfilt('bandpassiir','FilterOrder',4, ...
     'HalfPowerFrequency1',0.5,'HalfPowerFrequency2',4, ...
     'SampleRate',Fs);
 
-% tmp stuff for spindle filtering
-filt_data = filtfilt(spFilt1,data(2,:));
-spn_pow = abs(hilbert(filt_data));
-figure;
-plot(smooth(spn_pow,100))
+% notch filtering line noise
+notchFilt = designfilt('bandstopiir', ...
+    'FilterOrder', 4, ...
+    'HalfPowerFrequency1', 59, ...
+    'HalfPowerFrequency2', 61, ...
+    'SampleRate', Fs);
+data = filtfilt(notchFilt,data')';
 
-% so filt stuff
-so_data = filtfilt(soFilt,data(2,:));
-so_pow = abs(hilbert(so_data));
-figure;
-plot(smooth(so_pow,100))
+% band pass filtering eeg data in 0.1-30Hz range
+data = filtfilt(lpFilt,data')';
+
+% tmp stuff for spindle filtering
+% filt_data = filtfilt(spFilt1,data(2,:));
+% spn_pow = abs(hilbert(filt_data));
+% figure;
+% plot(smooth(spn_pow,100))
+% 
+% % so filt stuff
+% so_data = filtfilt(soFilt,data(2,:));
+% so_pow = abs(hilbert(so_data));
+% figure;
+% plot(smooth(so_pow,100))
 
 %detect spindles
 % have to ignore the spike every 15 min so have to set those windows down
 % to zero 
 % get background SO epochs around spindles 
-grid_sp = detect_spindles_DDREAMS(data(1:6,:),I,soFilt,spFilt1,spFilt2,sleep_staging,Fs);
+grid_sp = ...
+    detect_spindles_ddreams(data,I,soFilt,spFilt1,spFilt2,sleep_staging,Fs);
 
 
 
