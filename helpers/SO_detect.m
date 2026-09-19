@@ -58,14 +58,13 @@ for i=1:length(so_st)
 end
 
 
-% Ampliude thresholds to get atleast 100 SO
 so_amp_hist=sort(so_amp(so_amp>0),'ascend');
 so_st1=[];so_end1=[];
 k=0.96;
 so_st_new=[];
 so_end_new=[];
 tracking=[];
-while k>=0.90 %% && length(so_st_new)<100
+while k>=0.70 %% && length(so_st_new)<100
     tracking= [tracking k];
     k=k-0.005;
     so_st1=[];so_end1=[];

@@ -5,9 +5,9 @@ function [grid_so] = ...
 % identify the ied times large high freq spikes
 I=logical(I);
 II=[];
-win = Fs*1; % discarding 1s of data either side of an artifact
+win = Fs*2; % discarding 2s of data either side of an artifact
 for i=1:size(data_main,1)
-    % threshold
+    % artifact threshold
     II(i,:) = (I);
     xx=find(abs(data_main(i,:))>250);
     for j=1:length(xx)
@@ -35,7 +35,7 @@ for i=1:size(data_main,1)
         sp_data = abs(hilbert(filtfilt(spFilt2,data_main(i,:))));
     end
 
-    [so_st_new so_end_new] = SO_detect(-so_data,[],[],I,Fs);
+    [so_st_new so_end_new,k] = SO_detect(-so_data,[],[],I,Fs);
     %[so_st_new so_end_new] = combine_events(so_st_new,so_end_new,500,4000);
     
     % get the epochs    
