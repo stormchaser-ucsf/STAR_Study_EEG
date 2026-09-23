@@ -191,6 +191,25 @@ for i=1:size(data_main,1)
     grid_sp.(name).sp_epochs_N3 = sp_epochs_N3;
     grid_sp.(name).so_epochs_N3 = so_epochs_N3;
     grid_sp.(name).sp_sp_epochs_N3 = sp_sp_epochs_N3;    
+
+    % look at SO amplitude in Stage 5 sleep    
+    I_sleep = sleep_staging==5;
+    sp_st_N5=[];sp_end_N5=[];sp_epochs_N5=[];so_epochs_N5=[];
+    sp_sp_epochs_N5=[];
+    for ii=1:length(sp_st)
+        if I_sleep(sp_st(ii)) == 1
+            sp_st_N5 = [sp_st_N5 ii];
+            sp_end_N5 = [sp_end_N5 ii];
+            sp_epochs_N5 = [sp_epochs_N5; sp_epochs(ii,:)];
+            so_epochs_N5 = [so_epochs_N5;so_epochs(ii,:)];
+            sp_sp_epochs_N5 = [sp_sp_epochs_N5; sp_sp_epochs(ii,:)];
+        end
+    end  
+    grid_sp.(name).sp_st_N5 = sp_st_N5;
+    grid_sp.(name).sp_end_N5 = sp_end_N5;
+    grid_sp.(name).sp_epochs_N5 = sp_epochs_N5;
+    grid_sp.(name).so_epochs_N5 = so_epochs_N5;
+    grid_sp.(name).sp_sp_epochs_N5 = sp_sp_epochs_N5;    
     
     
     

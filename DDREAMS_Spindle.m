@@ -85,6 +85,7 @@ data = data(:,1:length(sleep_staging));
 I = zeros(size(sleep_staging));
 I(sleep_staging==2) =1;
 I(sleep_staging==3) =1;
+I(sleep_staging==5) =1;
 
 % filters
 Fs=EEG.srate;
@@ -151,6 +152,19 @@ grid_so = SO_analyses(data(2,:),I,soFilt,spFilt1,spFilt2,sleep_staging,0,Fs);
 
 
 %%%
+
+x=grid_sp.ch1.sp_epochs_N2;
+figure;plot(mean(x,1))
+title('N2')
+
+x=grid_sp.ch1.sp_epochs_N3;
+figure;plot(mean(x,1))
+title('N3')
+
+x=grid_sp.ch1.sp_epochs_N5;
+figure;plot(mean(x,1))
+title('REM')
+
 
 x=grid_so.ch1.ep_sp_N3;
 figure;plot(mean(x,1))
