@@ -40,9 +40,9 @@ EEG = pop_biosig(eeg_filename);
 eeglab redraw
 
 % three channels
-% LEOG: reference to Fz
-% REOG: reference to Fz
-% E3: Fz which is difference of L and R EOG
+% LEOG: reference to Fpz
+% REOG: reference to Fpz
+% E3: Fpz which is difference of L and R EOG
 % done
 
 data = EEG.data;
@@ -126,10 +126,11 @@ data = filtfilt(notchFilt,data')';
 data = filtfilt(lpFilt,data')';
 
 % tmp stuff for spindle filtering
-% filt_data = filtfilt(spFilt1,data(2,:));
-% spn_pow = abs(hilbert(filt_data));
-% figure;
-% plot(smooth(spn_pow,100))
+filt_data = filtfilt(spFilt1,data(2,:));
+spn_pow = abs(hilbert(filt_data));
+figure;
+plot(filt_data)
+%plot(smooth(spn_pow,100))
 % 
 % % so filt stuff
 % so_data = filtfilt(soFilt,data(2,:));
@@ -151,4 +152,5 @@ grid_so = SO_analyses(data(2,:),I,soFilt,spFilt1,spFilt2,sleep_staging,0,Fs);
 
 %%%
 
-
+x=grid_so.ch1.ep_sp_N3;
+figure;plot(mean(x,1))

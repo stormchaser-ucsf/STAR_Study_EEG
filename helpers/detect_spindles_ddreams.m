@@ -66,7 +66,7 @@ for i=1:size(data_main,1)
     peak_I = peak_I .* I;
     aa= find(peak_I==1);
     
-    % check if the duration criteria are met (300ms to 3500ms) with at
+    % check if the duration criteria are met (300ms to 2000ms) with at
     % least 1 S.D
     sp_peak=[];sp_st=[];sp_end=[];
     for j=1:length(aa)
