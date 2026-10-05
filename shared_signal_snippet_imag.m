@@ -1123,15 +1123,14 @@ else
     root_path = '/media/user/Data/Ana EEG/STAR/Phase 2/';
 end
 
-cd('/media/user/Data/Ana EEG/STAR/Phase 2/Participant 24021/')
-eeglab
-%Poly5toEEGlab
-
 % load dPC axes
 cd('/media/user/Data/Ana EEG/STAR/Phase 2')
 load dPCA_Shared_AllSubj
 load dPCA_Shared_AllSubj_baseline
 
+cd('/media/user/Data/Ana EEG/STAR/Phase 2/Participant 24015/')
+eeglab
+Poly5toEEGlab
 
 % load the dataset
 % EEG = pop_loadset('filename','24014_snippet-20250226T125238.set','filepath',...
@@ -1165,9 +1164,27 @@ EEG = pop_select( EEG, 'rmchannel',{'M1','M2','SpO2','PLETH','HRate','Stat','TRI
 [ALLEEG EEG CURRENTSET] = pop_newset(ALLEEG, EEG, 2,'overwrite','on','gui','off');
 eeglab redraw
 
+% get the eeg data
 data=EEG.data;
-%%%% look at shared variance projection 
-%% Sleep replay with 50% overlap: (comparing condn vs. time)
+
+% now getting the sleep staging files and aligning it
+filename = fullfile(pwd,'Sleep Stage Report/24015_SleepStages.xls');
+sleep_score = import_nap_sleep_scores(filename, "Data", [2, Inf]);
+sleep_score = sleep_score(2:end,:);
+
+sleep_staging= [];
+tidx = 1;
+for i=1:height(sleep_score)
+    tmp = sleep_score(i,:).Var2;
+    sleep_staging(tidx:(tidx+30*EEG.srate-1)) = tmp;
+    tidx = size(sleep_staging,2) + 1;
+end
+figure;
+plot(sleep_staging)
+
+data = data(:,1:length(sleep_staging));
+
+%% Sleep replay with 50% EEG segment overlap: (comparing condn vs. time vs. baseline)
 % condition-specific dPCs vs time dPCs vs random manifolds
 %
 % data            = sleep EEG, channels x samples
@@ -1180,10 +1197,12 @@ data=EEG.data;
 % whichMarg_total == 1 : condition-specific dPCs
 % whichMarg_total == 2 : time dPCs
 
-parpool('threads')
+p = gcp('nocreate');
+if isempty(p)
+    parpool('threads')
+end
 
 % Parameters
-
 Fs = 1000;
 winSec = 3;
 winSamp = winSec * Fs;
@@ -1198,35 +1217,28 @@ Xsleep = double(data);      % channels x samples
 
 startIdx = 1:stepSamp:(nSamples - winSamp + 1);
 nWins = numel(startIdx);
-
-fprintf('Number of 3 s windows with 50%% overlap = %d\n', nWins);
+fprintf('Number of 3s windows with 50%% overlap = %d\n', nWins);
 
 % Select dPCs
-
 condComps_all = find(whichMarg_total == 1);
 timeComps_all = find(whichMarg_total == 2);
 
 % Restrict to first 11 dPCs
-condComps = condComps_all(condComps_all <= nDim);
-timeComps = timeComps_all(timeComps_all <= nDim);
-
+condComps = condComps_all(condComps_all <= nDim); % differentiates viewing and imagined
+timeComps = timeComps_all(timeComps_all <= nDim); % engram
 nCondComps = numel(condComps);
-
 fprintf('Condition-specific comps:\n');
 disp(condComps);
-
 fprintf('Time comps:\n');
 disp(timeComps);
 
 % Preallocate
-
 vaf_cond = nan(nWins,1);
 vaf_time = nan(nWins,1);
-
 vaf_null = nan(nWins,nNull);
+segment_sleep_stages = nan(nWins,1);
 
 % Main loop
-
 parfor w = 1:nWins
 
     idx1 = startIdx(w);
@@ -1235,52 +1247,52 @@ parfor w = 1:nWins
     Xwin = Xsleep(:,idx1:idx2);       % channels x time
     Xwin = Xwin - mean(Xwin,2);       % center each channel
 
+    % get sleep stage
+    tmp_sleep_stage = sleep_staging(idx1:idx2);
+    segment_sleep_stages(w) = mode(tmp_sleep_stage);
+
+    % ovrall variance
     denom = norm(Xwin,'fro')^2;
 
-    if denom == 0 || any(isnan(Xwin(:)))
-        continue
-    end
+    % % check if error
+    % if denom == 0 || any(isnan(Xwin(:)))
+    %     continue
+    % end
 
     % Condition-specific dPC VAF
-
     Zcond = Wtotal(:,condComps)' * Xwin;
     Xhat_cond = Vtotal(:,condComps) * Zcond;
-
     vaf_cond(w) = 1 - norm(Xwin - Xhat_cond,'fro')^2 / denom;
 
-    % Time dPC VAF
-
+    % Time dPC VAF (engram)
     Ztime = Wtotal(:,timeComps)' * Xwin;
     Xhat_time = Vtotal(:,timeComps) * Ztime;
-
     vaf_time(w) = 1 - norm(Xwin - Xhat_time,'fro')^2 / denom;
+
+    % baseline manifold
+    Z_base = Wtotal_baseline(:,baseShared)' * Xwin;
+    Xhat_base = Vtotal_baseline(:,baseShared) * Z_base;
+    vaf_base_shared(w) = 1 - norm(Xwin - Xhat_base,'fro')^2 / denom;
 
     % Random manifold null
     % Same dimensionality as condition-specific dPC subspace
-
     for p = 1:nNull
-
         A = randn(nChan, nCondComps);
         [Q,~] = qr(A,0);              % random orthonormal manifold
-
         Xhat_null = Q * Q' * Xwin;
-
         vaf_null(w,p) = 1 - norm(Xwin - Xhat_null,'fro')^2 / denom;
     end
 end
 
 % Null confidence intervals per sleep window
-
 null_mean = mean(vaf_null,2,'omitnan');
 null_lo   = prctile(vaf_null,2.5,2);
 null_hi   = prctile(vaf_null,97.5,2);
 
 % Time axis
-
 tMin = (startIdx + winSamp/2 - 1) / Fs / 60;
 
 % Plot
-
 figure; hold on
 
 % Null 95% interval
@@ -1293,13 +1305,16 @@ fill([tMin fliplr(tMin)], ...
 plot(tMin, null_mean, '--', 'Color', [0.4 0.4 0.4], 'LineWidth', 1.2);
 plot(tMin, smooth(vaf_cond,10), 'LineWidth', 1.5);
 plot(tMin, smooth(vaf_time,10), 'LineWidth', 1.5);
+% sleep_stage
+plot(tMin,segment_sleep_stages/3, 'LineWidth', 1.5)
 
 xlabel('Sleep time (min)');
 ylabel('VAF');
 legend({'Random manifold 95% CI', ...
         'Random mean', ...
         'Condition-distinguishing submanifold', ...
-        'Engram submanifold'}, ...
+        'Engram submanifold',...
+        'Sleep stages'}, ...
         'Location','best');
 
 title('Sleep reactivation - Single Participant');
@@ -1345,15 +1360,31 @@ set(gca, 'FontSize', 12);
 xlim([.5 2.5])
 plot_beautify
 
-%%% Summary statistics
+%%%% reactivation sleep stage
+n2=[];n3=[];
+idx2 = find(segment_sleep_stages == 2);
+idx3 = find(segment_sleep_stages == 3);
+n2 = -vaf_cond(idx2) + vaf_time(idx2);
+n3 = -vaf_cond(idx3) + vaf_time(idx3);
+if length(n2) > length(n3)
+    n3(end+1:length(n2)) = NaN;
+elseif length(n2) < length(n3)
+    n2(end+1:length(n3)) = NaN;
+end
+figure;boxplot([n2 n3])
+ylim([0 2])
+xticks(1:2)
+xticklabels({'N2','N3'})
+ylabel('Sleep reactivation')
 
+%%% Summary statistics
 fprintf('\nCondition-specific dPC sleep VAF:\n');
 fprintf('Mean ± SEM = %.4f ± %.4f\n', ...
     mean(vaf_cond,'omitnan'), ...
     std(vaf_cond,'omitnan')/sqrt(sum(~isnan(vaf_cond))));
 fprintf('Median = %.4f\n', median(vaf_cond,'omitnan'));
 
-fprintf('\nTime dPC sleep VAF:\n');
+fprintf('\nEngram dPC sleep VAF:\n');
 fprintf('Mean ± SEM = %.4f ± %.4f\n', ...
     mean(vaf_time,'omitnan'), ...
     std(vaf_time,'omitnan')/sqrt(sum(~isnan(vaf_time))));
@@ -1362,8 +1393,7 @@ fprintf('Median = %.4f\n', median(vaf_time,'omitnan'));
 fprintf('\nRandom manifold null VAF:\n');
 fprintf('Mean null = %.4f\n', mean(null_mean,'omitnan'));
 
-% Window-wise significance versus random null
-
+%%% Window-wise significance versus random null
 p_cond = nan(nWins,1);
 p_time = nan(nWins,1);
 
@@ -1382,9 +1412,7 @@ fprintf('Fraction significant windows, time dPCs vs null: %.3f\n', ...
     mean(sig_time,'omitnan'));
 
 % Compare condition-specific vs time dPC VAF across windows
-
 [p_cond_vs_time,~,stats_cond_vs_time] = signrank(vaf_cond, vaf_time);
-
 fprintf('\nCondition-specific vs Time dPC VAF across windows:\n');
 fprintf('p = %.4g, signedrank = %.3f\n', ...
     p_cond_vs_time, stats_cond_vs_time.signedrank);
@@ -1392,7 +1420,8 @@ fprintf('p = %.4g, signedrank = %.3f\n', ...
 
 
 
-%% Sleep reactivation: task shared dPCs vs baseline shared dPCs
+%% Sleep reactivation: task shared dPCs vs baseline shared dPCs (MAIN)
+%(MAIN)
 % Sleep data:
 %   data = channels x samples, e.g. 62 x 7205598
 %
@@ -1408,27 +1437,28 @@ fprintf('p = %.4g, signedrank = %.3f\n', ...
 
 clear vaf_task_shared vaf_base_shared
 
-% Parameters
+p = gcp('nocreate');
+if isempty(p)
+    parpool('threads')
+end
 
+%%%%%
+
+% Parameters
 Fs = 1000;
 winSec = 3;
 winSamp = winSec * Fs;
 stepSamp = winSamp / 2;      % 50% overlap
-
 nDim = 11;                   % use first 11 dPCs / 95% VAF dimensionality
-
 Xsleep = double(data);       % channels x samples
 
 [nChan, nSamples] = size(Xsleep);
-
 startIdx = 1:stepSamp:(nSamples - winSamp + 1);
 nWins = numel(startIdx);
-
 fprintf('Sleep duration = %.2f min\n', nSamples/Fs/60);
 fprintf('Number of 3 s windows with 50%% overlap = %d\n', nWins);
 
 % Select shared/time dPCs from task and baseline
-
 taskShared_all = find(whichMarg_total == 2);
 baseShared_all = find(whichMarg_total_baseline == 2);
 
@@ -1438,7 +1468,6 @@ baseShared = baseShared_all(baseShared_all <= nDim);
 
 % Match number of components for fair comparison
 k = min(numel(taskShared), numel(baseShared));
-
 taskShared = taskShared(1:k);
 baseShared = baseShared(1:k);
 
@@ -1449,13 +1478,12 @@ fprintf('Baseline shared dPCs: ');
 disp(baseShared);
 
 % Preallocate
-
 vaf_task_shared = nan(nWins,1);
 vaf_base_shared = nan(nWins,1);
+segment_sleep_stages = nan(nWins,1);
 
 % Loop through sleep snippets
-
-for w = 1:nWins
+parfor w = 1:nWins
 
     idx1 = startIdx(w);
     idx2 = idx1 + winSamp - 1;
@@ -1465,71 +1493,81 @@ for w = 1:nWins
     % Center each sleep window channel-wise
     Xwin = Xwin - mean(Xwin,2);
 
+     % get sleep stage
+    tmp_sleep_stage = sleep_staging(idx1:idx2);
+    segment_sleep_stages(w) = mode(tmp_sleep_stage);
+
     denom = norm(Xwin,'fro')^2;
 
-    if denom == 0 || any(isnan(Xwin(:)))
-        continue
-    end
+    % % error correction
+    % if denom == 0 || any(isnan(Xwin(:)))
+    %     continue
+    % end
 
-    % Reconstruction using task shared/time dPCs
-
+    % Reconstruction using engram
     Z_task = Wtotal(:,taskShared)' * Xwin;
     Xhat_task = Vtotal(:,taskShared) * Z_task;
-
     vaf_task_shared(w) = 1 - norm(Xwin - Xhat_task,'fro')^2 / denom;
 
-    % Reconstruction using baseline shared/time dPCs
-
+    % Reconstruction using baseline  dPCs
     Z_base = Wtotal_baseline(:,baseShared)' * Xwin;
     Xhat_base = Vtotal_baseline(:,baseShared) * Z_base;
-
     vaf_base_shared(w) = 1 - norm(Xwin - Xhat_base,'fro')^2 / denom;
-
 end
 
+
+%%%% SORTING RESULTS BY SLEEP STAGE 
+n2=[];n3=[];
+idx2 = find(segment_sleep_stages == 2);
+idx3 = find(segment_sleep_stages == 3);
+n2 = vaf_task_shared(idx2) - vaf_base_shared(idx2);
+n3 = vaf_task_shared(idx3) - vaf_base_shared(idx3);
+if length(n2) > length(n3)
+    n3(end+1:length(n2)) = NaN;
+elseif length(n2) < length(n3)
+    n2(end+1:length(n3)) = NaN;
+end
+figure;boxplot([n2 n3])
+ylim([-0.5 1.5])
+xticks(1:2)
+xticklabels({'N2','N3'})
+ylabel('Sleep reactivation')
+
+%%% PLOTTING
+
 % Time axis
-
 tMin = (startIdx + winSamp/2 - 1) / Fs / 60;
-
 % Plot VAF over sleep
-
 figure; hold on
-
-plot(tMin, vaf_task_shared, 'LineWidth', 1.2);
-plot(tMin, vaf_base_shared, 'LineWidth', 1.2);
-
+plot(tMin, smooth(vaf_task_shared,10), 'LineWidth', 1.5);
+plot(tMin, smooth(vaf_base_shared,10), 'LineWidth', 1.5);
+plot(tMin, segment_sleep_stages/3, 'k','LineWidth', 1.5);
+ylim([-2 2])
 xlabel('Sleep time (min)');
 ylabel('VAF');
-legend({'Task shared/time dPCs', 'Baseline shared/time dPCs'}, ...
+legend({'Engram', 'Baseline',...
+    'Sleep Stage'}, ...
     'Location','best');
-
-title('Sleep reactivation: shared dPC VAF');
+title('Sleep reactivation of Engram');
 box off;
 
 % Smooth plot for visualization only
-
 smoothWin = 25; % windows; 25 windows = ~37.5 s with 50% overlap
-
 vaf_task_smooth = movmean(vaf_task_shared, smoothWin, 'omitnan');
 vaf_base_smooth = movmean(vaf_base_shared, smoothWin, 'omitnan');
-
 figure; hold on
-
 plot(tMin, vaf_task_smooth, 'LineWidth', 2);
 plot(tMin, vaf_base_smooth, 'LineWidth', 2);
-
 xlabel('Sleep time (min)');
 ylabel('Smoothed VAF');
 legend({'Engram', 'Non-task baseline structure'}, ...
     'Location','best');
 xlim([0 120])
-
 title('Sleep reactivation');
 box off;
 plot_beautify
 
 % Summary statistics
-
 fprintf('\nTask shared/time dPC sleep VAF:\n');
 fprintf('Mean ± SEM = %.4f ± %.4f\n', ...
     mean(vaf_task_shared,'omitnan'), ...
@@ -1543,9 +1581,7 @@ fprintf('Mean ± SEM = %.4f ± %.4f\n', ...
 fprintf('Median = %.4f\n', median(vaf_base_shared,'omitnan'));
 
 % Direct comparison: task shared vs baseline shared
-
 diff_vaf = vaf_task_shared - vaf_base_shared;
-
 fprintf('\nTask shared - baseline shared VAF:\n');
 fprintf('Mean ± SEM = %.4f ± %.4f\n', ...
     mean(diff_vaf,'omitnan'), ...
@@ -1555,47 +1591,40 @@ fprintf('Median = %.4f\n', median(diff_vaf,'omitnan'));
 % Note: windows overlap, so this p-value treats windows as observations
 % and is mainly descriptive.
 [p_win,~,stats_win] = signrank(vaf_task_shared, vaf_base_shared);
-
 fprintf('\nWindow-wise signed-rank test, task shared vs baseline shared:\n');
 fprintf('p = %.4g, signedrank = %.3f\n', p_win, stats_win.signedrank);
 
+
+
+
+
+
+
 % Better summary using non-overlapping blocks for less inflated statistics
 % Each block is 1 min of sleep.
-
 blockMin = 1;
 blockDurSamp = blockMin * 60 * Fs;
-
 nBlocks = floor(nSamples / blockDurSamp);
-
 block_task = nan(nBlocks,1);
 block_base = nan(nBlocks,1);
-
 for b = 1:nBlocks
-
     blockStartSamp = (b-1)*blockDurSamp + 1;
     blockEndSamp   = b*blockDurSamp;
-
     winInBlock = startIdx >= blockStartSamp & startIdx <= (blockEndSamp - winSamp + 1);
-
     block_task(b) = mean(vaf_task_shared(winInBlock), 'omitnan');
     block_base(b) = mean(vaf_base_shared(winInBlock), 'omitnan');
-
 end
 
 [p_block,~,stats_block] = signrank(block_task, block_base);
-
 fprintf('\n1-min block signed-rank test:\n');
 fprintf('Task shared mean block VAF = %.4f\n', mean(block_task,'omitnan'));
 fprintf('Baseline shared mean block VAF = %.4f\n', mean(block_base,'omitnan'));
 fprintf('p = %.4g, signedrank = %.3f\n', p_block, stats_block.signedrank);
 
 % Boxplot of 1-min block means
-
 figure; hold on
-
 boxplot([block_task, block_base], ...
     'Labels', {'Engram', 'Baseline'});
-
 ylabel('Mean VAF per 1-min sleep block');
 title('Sleep reactivation: task shared vs baseline shared dPCs');
 box off;
@@ -1640,3 +1669,6 @@ box off
 set(gca, 'FontSize', 12);
 xlim([.5 2.5])
 plot_beautify
+
+
+
