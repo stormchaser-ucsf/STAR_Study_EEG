@@ -1192,7 +1192,7 @@ load dPCA_Shared_AllSubj
 load dPCA_Shared_AllSubj_baseline
 res_react=[];
 res_react_stage=[];
-for i=1:length(subj_names)
+for i=21:length(subj_names)
     STUDY = []; CURRENTSTUDY = 0; ALLEEG = []; EEG=[]; CURRENTSET=[];
     eeglab redraw
 
@@ -1200,7 +1200,8 @@ for i=1:length(subj_names)
     subj = ['Participant ' subj_names{i}];
     nap_file = [subj_names{i} '_SleepData.set'];
     filepath = fullfile(root_path,subj);
-    if isfolder(filepath)
+    napfile_full = fullfile(filepath,nap_file);
+    if isfolder(filepath) && i~=3 && exist(napfile_full)
         EEG = pop_loadset('filename',nap_file,...
             'filepath',filepath);
         [ALLEEG, EEG, CURRENTSET] = eeg_store( ALLEEG, EEG, 0 );
@@ -1230,30 +1231,51 @@ for i=1:length(subj_names)
         sleep_report_path = fullfile(filepath,'Sleep Stage Report');
         sleep_file = [subj_names{i} '_SleepStages.xls'];
         sleep_filename = fullfile(sleep_report_path,sleep_file);
-        sleep_score = import_nap_sleep_scores(sleep_filename, "Data", [2, Inf]);
-        sleep_score = sleep_score(2:end,:);
-        sleep_staging= [];
-        tidx = 1;
-        for ii=1:height(sleep_score)
-            tmp = sleep_score(ii,:).Var2;
-            sleep_staging(tidx:(tidx+30*EEG.srate-1)) = tmp;
-            tidx = size(sleep_staging,2) + 1;
+        if isfolder(sleep_report_path) && exist(sleep_filename)
+
+            sleep_score = import_nap_sleep_scores(sleep_filename, "Data", [2, Inf]);
+            sleep_score = sleep_score(2:end,:);
+            sleep_staging= [];
+            tidx = 1;
+            for ii=1:height(sleep_score)
+                tmp = sleep_score(ii,:).Var2;
+                sleep_staging(tidx:(tidx+30*EEG.srate-1)) = tmp;
+                tidx = size(sleep_staging,2) + 1;
+            end
+
+            % align the data
+            data = data(:,1:length(sleep_staging));
+
+            % get the reactivation
+            [n2,n3,vaf_task_shared,vaf_base_shared] = get_reactivation_sleep_stage_subject(data,sleep_staging,...
+                whichMarg_total,whichMarg_total_baseline,Wtotal,Vtotal,Wtotal_baseline,Vtotal_baseline);
+
+            % store
+            res_react =  [res_react; [nanmean([vaf_task_shared vaf_base_shared])]];
+            res_react_stage = [res_react_stage; [nanmean(n2) nanmean(n3)]];
         end
-
-        % align the data
-        data = data(:,1:length(sleep_staging));
-
-        % get the reactivation
-        [n2,n3,vaf_task_shared,vaf_base_shared] = get_reactivation_sleep_stage_subject(data,sleep_staging,...
-            whichMarg_total,whichMarg_total_baseline,Wtotal,Vtotal,Wtotal_baseline,Vtotal_baseline);
-
-        % store
-        res_react =  [res_react; [nanmean([vaf_task_shared vaf_base_shared])]];
-        res_react_stage = [res_react_stage; [nanmean(n2) nanmean(n3)]];
     end
 end
 
+save reactivation_analyses res_react res_react_stage -v7.3
 
+figure;boxplot(res_react)
+xticks(1:2)
+ylim([-2 1])
+xticklabels({'Engram','Baseline'})
+plot_beautify
+ylabel('VAF')
+[p,h,stats]=signrank(res_react(:,1),res_react(:,2));
+title(['Reactivation pval ' num2str(p)])
+
+figure;boxplot(res_react_stage)
+xticks(1:2)
+ylim([-1 0.8])
+xticklabels({'N2','N3'})
+plot_beautify
+ylabel('VAF')
+[p,h,stats]=signrank(res_react_stage(:,1),res_react_stage(:,2));
+title(['Reactivation pval ' num2str(p)])
 
 %% DETECTING IF SHARED SIGNAL IS REPLAYED IN SLEEP (MAIN)
 
