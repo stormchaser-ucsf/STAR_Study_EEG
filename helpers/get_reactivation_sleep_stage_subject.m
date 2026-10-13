@@ -84,10 +84,14 @@ parfor w = 1:nWins
 end
 
 
+
+
 %%%% SORTING RESULTS BY SLEEP STAGE 
 n2=[];n3=[];
+idx1 = find(segment_sleep_stages == 1);
 idx2 = find(segment_sleep_stages == 2);
 idx3 = find(segment_sleep_stages == 3);
+idxx = [idx1 ;idx2 ;idx3];
 n2 = vaf_task_shared(idx2) ;%- vaf_base_shared(idx2);
 n3 = vaf_task_shared(idx3);% - vaf_base_shared(idx3);
 if length(n2) > length(n3)
@@ -96,21 +100,23 @@ elseif length(n2) < length(n3)
     n2(end+1:length(n3)) = NaN;
 end
 
-
+%%%%% RESTRICTING REACTIVATION ONLY TO NREM SLEEP
+vaf_base_shared = vaf_base_shared(idxx);
+vaf_task_shared = vaf_task_shared(idxx);
 
 % Better summary using non-overlapping blocks for less inflated statistics
 % Each block is 1 min of sleep.
-blockMin = 1;
-blockDurSamp = blockMin * 60 * Fs;
-nBlocks = floor(nSamples / blockDurSamp);
-block_task = nan(nBlocks,1);
-block_base = nan(nBlocks,1);
-for b = 1:nBlocks
-    blockStartSamp = (b-1)*blockDurSamp + 1;
-    blockEndSamp   = b*blockDurSamp;
-    winInBlock = startIdx >= blockStartSamp & startIdx <= (blockEndSamp - winSamp + 1);
-    block_task(b) = mean(vaf_task_shared(winInBlock), 'omitnan');
-    block_base(b) = mean(vaf_base_shared(winInBlock), 'omitnan');
-end
-vaf_task_shared = block_task;
-vaf_base_shared = block_base;
+% blockMin = 1;
+% blockDurSamp = blockMin * 60 * Fs;
+% nBlocks = floor(nSamples / blockDurSamp);
+% block_task = nan(nBlocks,1);
+% block_base = nan(nBlocks,1);
+% for b = 1:nBlocks
+%     blockStartSamp = (b-1)*blockDurSamp + 1;
+%     blockEndSamp   = b*blockDurSamp;
+%     winInBlock = startIdx >= blockStartSamp & startIdx <= (blockEndSamp - winSamp + 1);
+%     block_task(b) = mean(vaf_task_shared(winInBlock), 'omitnan');
+%     block_base(b) = mean(vaf_base_shared(winInBlock), 'omitnan');
+% end
+% vaf_task_shared = block_task;
+% vaf_base_shared = block_base;
