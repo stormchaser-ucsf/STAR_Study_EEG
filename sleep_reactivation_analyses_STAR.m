@@ -209,7 +209,7 @@ title(['Reactivation pval ' num2str(p)])
 
 %% DETECTING IF SHARED SIGNAL IS REPLAYED IN SLEEP (MAIN)
 
-[
+
 clc;clear
 close all
 
