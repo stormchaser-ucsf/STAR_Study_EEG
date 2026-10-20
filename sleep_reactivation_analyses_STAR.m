@@ -44,7 +44,7 @@ cd(root_path)
 
 eeglab
 err_files=[];
-for subj=28:42
+for subj=45:53
     STUDY = []; CURRENTSTUDY = 0; ALLEEG = []; EEG=[]; CURRENTSET=[];
     eeglab redraw
     subj_name = ['Participant 240' num2str(subj)];

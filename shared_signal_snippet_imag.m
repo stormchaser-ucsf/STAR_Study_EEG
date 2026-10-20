@@ -249,7 +249,7 @@ for i=1:length(files)
 end
 
 cd('/media/user/Data/Ana EEG/STAR/Phase 2')
-save Imag_Snippet_SubjMatched chdata_neutral chdata_trauma chdata_trauma_imag ...
+save Imag_Snippet_SubjMatched_New chdata_neutral chdata_trauma chdata_trauma_imag ...
     chdata_neutral_imag files_snippet files_imag -v7.3
 
 
@@ -304,7 +304,7 @@ axis tight
 
 %Q2: what are the principal angles betwen the two manifolds? More sig. than
 %TME stats?
-dim=11;
+dim=8;
 cd('/home/user/Documents/Repositories/STAR_Study_EEG')
 addpath(genpath(pwd))
 addpath(genpath('/home/user/Documents/Repositories/ECoG_BCI_TravelingWaves/'))
@@ -312,7 +312,7 @@ addpath(genpath('/home/user/Documents/Repositories/STAR_Study_EEG'))
 [angles,~,~,pcap] = principal_angles(c1(:,1:dim),c2(:,1:dim));
 
 
-parpool('threads')
+%parpool('threads')
 
 % control stats of no covariance in task-specific data 
 clear dataTensor
@@ -481,6 +481,7 @@ plot_beautify
 ylabel('Cross-validated VAF')
 
 %% Q4: comparison with baseline manifold structure?
+%(MAIN)
 % based on increasing dimensionality 
 angles_baseline=[];
 % idx_snippet_baseline = [1:1e3  6e3:7e3];
@@ -1279,7 +1280,7 @@ title(['Reactivation pval ' num2str(p)])
 
 %% DETECTING IF SHARED SIGNAL IS REPLAYED IN SLEEP (MAIN)
 
-[
+
 clc;clear
 close all
 

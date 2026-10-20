@@ -13,7 +13,7 @@ addpath('C:\Users\nikic\Documents\MATLAB\eeglab2023.1')
 %addpath(genpath('C:\Users\nikic\Documents\MATLAB\fieldtrip-20250114'))
 addpath('C:\Users\nikic\Documents\MATLAB')
 else
-    root_path='/media/user/Data/Ana EEG/STAR/Phase 2/Participant 24041';
+    root_path='/media/user/Data/Ana EEG/STAR/Phase 2/Participant 24053';
     addpath('/home/user/Documents/MATLAB/eeglab2023.1');
     addpath(genpath('/home/user/Documents/MATLAB/Ana EEG/hdEEG_Trauma_PTSD/SAGA_Matlab/SAGA_interface/'))
     cd(root_path);
@@ -29,7 +29,7 @@ eeglab
 
 
 % call the functions to load the SAGA datafile
-%Poly5toEEGlab
+Poly5toEEGlab
 eeglab redraw
 
 %% GETTING STIM AND FILTERING, referencing THE DATA
@@ -81,7 +81,7 @@ stim_onsets = stim_onsets(1:2:end); % when the snapshot appeared
 
 % now taking into account that the stim onsets have a 40ms delay due to
 % photosensor settings
-stim_onsets = stim_onsets-5; % look at the screenshots from Iryne
+stim_onsets = stim_onsets-9; % look at the screenshots from Iryne
 figure;stem(stim)
 vline(stim_onsets,'r')
 disp(['number of detected stim is ' num2str(length(stim_onsets))]);
@@ -282,7 +282,7 @@ for i=1:60
 end
 
 
-bad_ch = [44];
+bad_ch = [];
 if ~isempty(bad_ch)    
     EEG.data(bad_ch,:)=0;
     [ALLEEG EEG CURRENTSET] = pop_newset(ALLEEG, EEG, 2,'overwrite','on','gui','off');
@@ -298,7 +298,8 @@ if ~isempty(bad_ch)
 end
 
 % epoching the data. Stim onset tell when the two pulses came on at the end
-% of the fixation cross. So go back 1s and go forward 6s.
+% of the fixation cross. So go back 1s and go forward 6s (snippet) or 1s to
+% 13s for imagination task part 2
 % A) Pre stim: fixation cross
 % B) Stim: this corresponds to the two pulses, lasts for 350.35ms or 350ms
 % C) Then the actual snippet video comes on, lasts for 4004ms
@@ -306,7 +307,7 @@ end
 EEG = pop_chanevent(EEG, 63,'edge','leading','edgelen',0,'delchan','off');
 [ALLEEG, EEG, CURRENTSET] = eeg_store(ALLEEG, EEG, CURRENTSET);
 EEG = eeg_checkset( EEG );
-EEG = pop_epoch( EEG, {  'chan63'  }, [-1 13], 'newname', 'Data epoched', 'epochinfo', 'yes');
+EEG = pop_epoch( EEG, {  'chan63'  }, [-1 6], 'newname', 'Data epoched', 'epochinfo', 'yes');
 [ALLEEG EEG CURRENTSET] = pop_newset(ALLEEG, EEG, 2,'overwrite','on','gui','off');
 EEG = eeg_checkset( EEG );
 EEG = pop_rmbase( EEG, [-1000 0] ,[]);
@@ -359,7 +360,8 @@ ylabel('uV')
 title('Occipital channels')
 
 % plot ERPs after splitting into neutral and trauma snippets
-neutral_epochs= [2 4 6 7 9 11 13 14 16 18 19 22 23 25 27 30 31 33 35 38];
+%neutral_epochs= [2 4 6 7 9 11 13 14 16 18 19 22 23 25 27 30 31 33 35 38];
+neutral_epochs= [1 3 5 7 8 11 14 17 19 21 23 24 27 29 30 33 34 37 39 40];
 idx_neutral = zeros(40,1);
 idx_neutral(neutral_epochs)=1;
 trauma_epochs = find(idx_neutral==0);
