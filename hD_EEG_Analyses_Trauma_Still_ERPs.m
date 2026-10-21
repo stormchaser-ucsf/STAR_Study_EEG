@@ -5,15 +5,15 @@ close all
 
 % adding paths
 if ispc
-addpath(genpath('C:\Users\nikic\Documents\MATLAB\Ana EEG\hdEEG_Trauma_PTSD\SAGA_Matlab\SAGA_interface'))
-%root_path = 'F:\DATA\EEG Data Anne Richards\STAR\STAR_Pilot_data-selected\Pilot18';
-root_path='F:\DATA\EEG Data Anne Richards\STAR\Phase 2\Participant 24013';
-cd(root_path)
-addpath('C:\Users\nikic\Documents\MATLAB\eeglab2023.1')
-%addpath(genpath('C:\Users\nikic\Documents\MATLAB\fieldtrip-20250114'))
-addpath('C:\Users\nikic\Documents\MATLAB')
+    addpath(genpath('C:\Users\nikic\Documents\MATLAB\Ana EEG\hdEEG_Trauma_PTSD\SAGA_Matlab\SAGA_interface'))
+    %root_path = 'F:\DATA\EEG Data Anne Richards\STAR\STAR_Pilot_data-selected\Pilot18';
+    root_path='F:\DATA\EEG Data Anne Richards\STAR\Phase 2\Participant 24041';
+    cd(root_path)
+    addpath('C:\Users\nikic\Documents\MATLAB\eeglab2023.1')
+    %addpath(genpath('C:\Users\nikic\Documents\MATLAB\fieldtrip-20250114'))
+    addpath('C:\Users\nikic\Documents\MATLAB')
 else
-    root_path='/media/user/Data/Ana EEG/STAR/Phase 2/Participant 24038';
+    root_path='/media/user/Data/Ana EEG/STAR/Phase 2/Participant 24041';
     addpath('/home/user/Documents/MATLAB/eeglab2023.1');
     addpath(genpath('/home/user/Documents/MATLAB/Ana EEG/hdEEG_Trauma_PTSD/SAGA_Matlab/SAGA_interface/'))
     cd(root_path);
@@ -76,12 +76,12 @@ while ~done
     end
 
 end
-stim_onsets = stim_onsets(2:3:end); % taking into account just the two pulse flashes
-%stim_onsets = stim_onsets(1:2:end); % when the snapshot appeared
+stim_onsets = stim_onsets(2:3:end); % imag part 2. taking into account just the two pulse flashes
+%stim_onsets = stim_onsets(1:2:end); % snippet when the snapshot appeared
 
 % now taking into account that the stim onsets have a 40ms delay due to
 % photosensor settings
-stim_onsets = stim_onsets-3; % look at the screenshots from Iryne
+stim_onsets = stim_onsets-5; % look at the screenshots from Iryne
 figure;stem(stim)
 vline(stim_onsets,'r')
 disp(['number of detected stim is ' num2str(length(stim_onsets))]);
@@ -282,7 +282,7 @@ for i=1:60
 end
 
 
-bad_ch = [34];
+bad_ch = [];
 if ~isempty(bad_ch)    
     EEG.data(bad_ch,:)=0;
     [ALLEEG EEG CURRENTSET] = pop_newset(ALLEEG, EEG, 2,'overwrite','on','gui','off');
@@ -360,7 +360,9 @@ ylabel('uV')
 title('Occipital channels')
 
 % plot ERPs after splitting into neutral and trauma snippets
+% imag part 2
 neutral_epochs= [2 4 6 7 9 11 13 14 16 18 19 22 23 25 27 30 31 33 35 38];
+% snippet viewing
 %neutral_epochs= [1 3 5 7 8 11 14 17 19 21 23 24 27 29 30 33 34 37 39 40];
 idx_neutral = zeros(40,1);
 idx_neutral(neutral_epochs)=1;

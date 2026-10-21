@@ -249,7 +249,7 @@ for i=1:length(files)
 end
 
 cd('/media/user/Data/Ana EEG/STAR/Phase 2')
-save Imag_Snippet_SubjMatched_New chdata_neutral chdata_trauma chdata_trauma_imag ...
+save Imag_Snippet_SubjMatched_New_v2 chdata_neutral chdata_trauma chdata_trauma_imag ...
     chdata_neutral_imag files_snippet files_imag -v7.3
 
 
