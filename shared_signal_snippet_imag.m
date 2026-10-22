@@ -266,6 +266,8 @@ save Imag_Snippet_SubjMatched_New_v3 chdata_neutral chdata_trauma chdata_trauma_
 
 %% INTRINSIC MANIFOLD SHARED
 
+parallel_check
+
 Fs=1e3;
 bpFilt = designfilt('lowpassiir', 'FilterOrder', 4, ...
     'HalfPowerFrequency', 15, 'SampleRate', Fs);
