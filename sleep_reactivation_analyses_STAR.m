@@ -86,8 +86,8 @@ eeglab
 cd('/media/user/Data/Ana EEG/STAR/Phase 2')
 root_path=pwd;
 %load Imag_Snippet_SubjMatched
-%load Imag_Snippet_SubjMatched_New_v2 % best results
-load Imag_Snippet_SubjMatched_New_v3
+load Imag_Snippet_SubjMatched_New_v2 % best results
+%load Imag_Snippet_SubjMatched_New_v3
 
 % get subjects
 subj_names={};
