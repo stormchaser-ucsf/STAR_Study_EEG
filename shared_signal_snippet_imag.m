@@ -263,7 +263,7 @@ cd('/media/user/Data/Ana EEG/STAR/Phase 2')
 save Imag_Snippet_SubjMatched_New_v3 chdata_neutral chdata_trauma chdata_trauma_imag ...
     chdata_neutral_imag files_snippet files_imag -v7.3
 
-
+%Imag_Snippet_SubjMatched_New_v2 gives best results, doesnt have 24015
 %% INTRINSIC MANIFOLD SHARED
 
 parallel_check
@@ -502,7 +502,7 @@ angles_baseline=[];
 idx_snippet_baseline = [100:0.9e3 ];%100:1e3 old
 idx_imag_baseline = [100:0.9e3 ];
 pcap_baseline=[];
-dim=11;
+dim=15;
 pcap_sweep_boot=[];
 parfor i=1:1000
     idx = randi(size(chdata_neutral,3),size(chdata_neutral,3),1);
@@ -883,7 +883,7 @@ b = chdata_trauma_imag - chdata_neutral_imag;
 
 
 % experimental / control
-ch=1;
+ch=2;
 if ch==1 % experimental    
     idx_snippet = 2e3:5e3;
     idx_imag = 8.5e3:11.5e3;
@@ -1112,7 +1112,7 @@ set(gca, 'FontSize', 12, 'Box', 'off');
 title('Cross-validated dPCA VAF');
 ylim([-.5 .75])
 plot_beautify
-
+hline(0,'--r')
 
 
 [p_condn,~,stats_condn] = signrank(vaf_task(:,1), vaf_base(:,1));p_condn
