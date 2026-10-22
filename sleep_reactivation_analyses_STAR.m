@@ -80,12 +80,13 @@ end
 
 %% REACTIVATION SUBJECT SPECIFIC ENGRAM AND AVERAGE ENGRAM (MAIN MAIN)
 
-%clc;clear
-%close all
-%eeglab
+clc;clear
+close all
+eeglab
 cd('/media/user/Data/Ana EEG/STAR/Phase 2')
 root_path=pwd;
-load Imag_Snippet_SubjMatched
+%load Imag_Snippet_SubjMatched
+load Imag_Snippet_SubjMatched_New_v2
 
 % get subjects
 subj_names={};
@@ -183,7 +184,7 @@ for i=1:length(subj_names)
     end
 end
 
-save reactivation_analyses_NREM res_react res_react_stage ...
+save reactivation_analyses_NREM_v2 res_react res_react_stage ...
     subj_proc subj_not_proc  -v7.3
 
 

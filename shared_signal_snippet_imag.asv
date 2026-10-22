@@ -1,4 +1,10 @@
+%% missing subjects
+% 24015 24032 24034 24036 24038 24039 24041 24043 44 45 
+% 24015 -> just called pt3
+% 24032 -> error
+% 41,43,44,45 
 
+%%
 
 clc;clear
 close all
@@ -870,7 +876,7 @@ b = chdata_trauma_imag - chdata_neutral_imag;
 
 
 % experimental / control
-ch=2;
+ch=1;
 if ch==1 % experimental    
     idx_snippet = 2e3:5e3;
     idx_imag = 8.5e3:11.5e3;
@@ -895,7 +901,7 @@ imag_condn = double(imag_condn);
 
 [nChan, nTime, nSubj] = size(snippet);
 
-nComponents = 11;
+nComponents = 15;
 
 % dPCA input format will be:
 % channels x conditions x time
@@ -1161,7 +1167,7 @@ for subj=28:41
 end
 
 %% REACTIVATION ON SUBJECT SPECIFIC DATA
-
+% (MAIN MAIN)
 clc;clear
 close all
 eeglab
@@ -1194,6 +1200,7 @@ load dPCA_Shared_AllSubj
 load dPCA_Shared_AllSubj_baseline
 res_react=[];
 res_react_stage=[];
+missed_subj=[];
 for i=1:length(subj_names)
     STUDY = []; CURRENTSTUDY = 0; ALLEEG = []; EEG=[]; CURRENTSET=[];
     eeglab redraw
@@ -1255,11 +1262,15 @@ for i=1:length(subj_names)
             % store
             res_react =  [res_react; [nanmean([vaf_task_shared vaf_base_shared])]];
             res_react_stage = [res_react_stage; [nanmean(n2) nanmean(n3)]];
+        else
+            missed_subj = [missed_subj;subj_names(i)];        
         end
+    else
+        missed_subj = [missed_subj;subj_names(i)];
     end
 end
 
-save reactivation_analyses res_react res_react_stage -v7.3
+save reactivation_analyses_v2 res_react res_react_stage -v7.3
 
 figure;boxplot(res_react)
 xticks(1:2)

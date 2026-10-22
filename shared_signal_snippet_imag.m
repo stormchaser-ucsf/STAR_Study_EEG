@@ -1,4 +1,15 @@
+%% missing subjects
+% 24015 24032 24034 24036 24038 24039 24041 24043 44 45 
+% 24015 -> just called pt3
+% 24032,34,36,38,39 -> error
+% 41,43,44,45 
+%41-> error
+%43-> no data
+%45-error
+% 15,44 salvageable
+% maybe 28 also
 
+%%
 
 clc;clear
 close all
@@ -249,7 +260,7 @@ for i=1:length(files)
 end
 
 cd('/media/user/Data/Ana EEG/STAR/Phase 2')
-save Imag_Snippet_SubjMatched_New_v2 chdata_neutral chdata_trauma chdata_trauma_imag ...
+save Imag_Snippet_SubjMatched_New_v3 chdata_neutral chdata_trauma chdata_trauma_imag ...
     chdata_neutral_imag files_snippet files_imag -v7.3
 
 

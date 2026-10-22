@@ -13,7 +13,7 @@ if ispc
     %addpath(genpath('C:\Users\nikic\Documents\MATLAB\fieldtrip-20250114'))
     addpath('C:\Users\nikic\Documents\MATLAB')
 else
-    root_path='/media/user/Data/Ana EEG/STAR/Phase 2/Participant 24041';
+    root_path='/media/user/Data/Ana EEG/STAR/Phase 2/Participant 24015';
     addpath('/home/user/Documents/MATLAB/eeglab2023.1');
     addpath(genpath('/home/user/Documents/MATLAB/Ana EEG/hdEEG_Trauma_PTSD/SAGA_Matlab/SAGA_interface/'))
     cd(root_path);
@@ -38,8 +38,8 @@ data=EEG.data;
 
 % plot the stim trigger -> the channel differs by recording?
 figure;
-%stim = data(83,:);
-stim = data(79,:);
+stim = data(83,:);
+%stim = data(79,:);
 plot(stim)
 
 % remove unncesary triggers at the end
@@ -81,7 +81,7 @@ stim_onsets = stim_onsets(2:3:end); % imag part 2. taking into account just the 
 
 % now taking into account that the stim onsets have a 40ms delay due to
 % photosensor settings
-stim_onsets = stim_onsets-5; % look at the screenshots from Iryne
+stim_onsets = stim_onsets-1; % look at the screenshots from Iryne
 figure;stem(stim)
 vline(stim_onsets,'r')
 disp(['number of detected stim is ' num2str(length(stim_onsets))]);
@@ -90,8 +90,8 @@ disp(['number of detected stim is ' num2str(length(stim_onsets))]);
 tmp = zeros(size(stim));
 tmp(stim_onsets)=1;
 figure;stem(tmp)
-%data(83,:) = tmp;
-data(79,:) = tmp;
+data(83,:) = tmp;
+%data(79,:) = tmp;
 
 %%%%% OLD
 %load into matlab workspace
@@ -282,7 +282,7 @@ for i=1:60
 end
 
 
-bad_ch = [];
+bad_ch = [12];
 if ~isempty(bad_ch)    
     EEG.data(bad_ch,:)=0;
     [ALLEEG EEG CURRENTSET] = pop_newset(ALLEEG, EEG, 2,'overwrite','on','gui','off');
@@ -331,7 +331,7 @@ eeglab redraw
 
 %% plot ERPs over occipital
 
-EEG = pop_autorej(EEG, 'nogui','on','threshold',150,'eegplot','on'); % automatic bad trial rejection
+EEG = pop_autorej(EEG, 'nogui','on','threshold',200,'eegplot','on'); % automatic bad trial rejection
 bad_trials = find(EEG.reject.rejauto);% bad trials
 close
 
