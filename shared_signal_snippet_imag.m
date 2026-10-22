@@ -304,7 +304,7 @@ axis tight
 
 %Q2: what are the principal angles betwen the two manifolds? More sig. than
 %TME stats?
-dim=8;
+dim=15;
 cd('/home/user/Documents/Repositories/STAR_Study_EEG')
 addpath(genpath(pwd))
 addpath(genpath('/home/user/Documents/Repositories/ECoG_BCI_TravelingWaves/'))
@@ -384,7 +384,7 @@ legend('Baseline')
 %% Q3: cross validation ie VAF when generalizing to held out subject
 % examining recon VAF projecting held out data onto manifold built from
 % other subjects, across condition
-dim=11;
+dim=15;
 vaf=[];
 for i=1:size(chdata_neutral,3)
     I = ones(size(chdata_neutral,3),1);
@@ -481,7 +481,7 @@ plot_beautify
 ylabel('Cross-validated VAF')
 
 %% Q4: comparison with baseline manifold structure?
-%(MAIN)
+%(MAIN MAIN)
 % based on increasing dimensionality 
 angles_baseline=[];
 % idx_snippet_baseline = [1:1e3  6e3:7e3];
@@ -862,7 +862,7 @@ sgtitle('Condition-specific dPCs')
 
 
 %% dPCA code cross validated
-%(MAIN)
+%(MAIN MAIN)
 
 addpath('/home/user/Documents/Repositories/dPCA/matlab')
 a = chdata_trauma - chdata_neutral;
@@ -870,7 +870,7 @@ b = chdata_trauma_imag - chdata_neutral_imag;
 
 
 % experimental / control
-ch=2;
+ch=1;
 if ch==1 % experimental    
     idx_snippet = 2e3:5e3;
     idx_imag = 8.5e3:11.5e3;
@@ -895,7 +895,7 @@ imag_condn = double(imag_condn);
 
 [nChan, nTime, nSubj] = size(snippet);
 
-nComponents = 11;
+nComponents = 15;
 
 % dPCA input format will be:
 % channels x conditions x time
@@ -1161,13 +1161,14 @@ for subj=28:41
 end
 
 %% REACTIVATION ON SUBJECT SPECIFIC DATA
-
+% (MAIN MAIN)
 clc;clear
 close all
 eeglab
 cd('/media/user/Data/Ana EEG/STAR/Phase 2')
 root_path=pwd;
-load Imag_Snippet_SubjMatched
+%load Imag_Snippet_SubjMatched
+load Imag_Snippet_SubjMatched_New_v2
 
 % get subjects
 subj_names={};
@@ -1193,7 +1194,8 @@ load dPCA_Shared_AllSubj
 load dPCA_Shared_AllSubj_baseline
 res_react=[];
 res_react_stage=[];
-for i=21:length(subj_names)
+missed_subj=[];
+for i=1:length(subj_names)
     STUDY = []; CURRENTSTUDY = 0; ALLEEG = []; EEG=[]; CURRENTSET=[];
     eeglab redraw
 
@@ -1254,11 +1256,15 @@ for i=21:length(subj_names)
             % store
             res_react =  [res_react; [nanmean([vaf_task_shared vaf_base_shared])]];
             res_react_stage = [res_react_stage; [nanmean(n2) nanmean(n3)]];
+        else
+            missed_subj = [missed_subj;subj_names(i)];        
         end
+    else
+        missed_subj = [missed_subj;subj_names(i)];
     end
 end
 
-save reactivation_analyses res_react res_react_stage -v7.3
+save reactivation_analyses_v2 res_react res_react_stage -v7.3
 
 figure;boxplot(res_react)
 xticks(1:2)

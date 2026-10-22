@@ -17,7 +17,7 @@ Fs = 1000;
 winSec = 3;
 winSamp = winSec * Fs;
 stepSamp = winSamp / 2;      % 50% overlap
-nDim = 11;                   % use first 11 dPCs / 95% VAF dimensionality
+nDim = 15;                   % use first 11 dPCs / 95% VAF dimensionality
 Xsleep = double(data);       % channels x samples
 
 [nChan, nSamples] = size(Xsleep);
