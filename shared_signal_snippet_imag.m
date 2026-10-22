@@ -496,6 +496,7 @@ ylabel('Cross-validated VAF')
 %% Q4: comparison with baseline manifold structure?
 %(MAIN MAIN)
 % based on increasing dimensionality 
+parallel_check
 angles_baseline=[];
 % idx_snippet_baseline = [1:1e3  6e3:7e3];
 % idx_imag_baseline = [1:1e3  13e3:14e3];
