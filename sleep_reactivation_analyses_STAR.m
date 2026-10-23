@@ -209,6 +209,11 @@ ylabel('VAF')
 [p,h,stats]=signrank(res_react_stage(:,1),res_react_stage(:,2));
 title(['Reactivation pval ' num2str(p)])
 
+%% DETECTING SO AND SPINDLES AT EACH ELECTRODE DURING SLEEP
+
+%% LINKING TOP REACTIVATION WINDOWS TO SO SPINDLE DYNAMICS
+% global SOs? DMD? More nesting probability? 
+
 %% DETECTING IF SHARED SIGNAL IS REPLAYED IN SLEEP (MAIN)
 
 
