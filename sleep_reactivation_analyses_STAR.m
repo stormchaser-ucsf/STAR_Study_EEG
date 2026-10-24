@@ -147,6 +147,21 @@ for i=1:length(subj_names)
         [ALLEEG EEG CURRENTSET] = pop_newset(ALLEEG, EEG, 2,'overwrite','on','gui','off');
         %[ALLEEG, EEG, CURRENTSET] = eeg_store( ALLEEG, EEG, 0 );
         eeglab redraw
+
+        % removing bad channels
+        if any(contains(subj, {'24013', '24014', '24015','24018'}))
+            bad_ch = [12];
+            EEG.data(bad_ch,:)=0;
+            [ALLEEG EEG CURRENTSET] = pop_newset(ALLEEG, EEG, 2,'overwrite','on','gui','off');
+            eeglab redraw
+        end
+        if any(contains(subj, {'24038'}))
+            bad_ch = [36-2];
+            EEG.data(bad_ch,:)=0;
+            [ALLEEG EEG CURRENTSET] = pop_newset(ALLEEG, EEG, 2,'overwrite','on','gui','off');
+            eeglab redraw
+        end
+
         data=EEG.data;
 
 
@@ -210,6 +225,165 @@ ylabel('VAF')
 title(['Reactivation pval ' num2str(p)])
 
 %% DETECTING SO AND SPINDLES AT EACH ELECTRODE DURING SLEEP
+%(MAIN MAIN)
+
+clc;clear
+close all
+eeglab
+cd('/media/user/Data/Ana EEG/STAR/Phase 2')
+root_path=pwd;
+%load Imag_Snippet_SubjMatched
+load Imag_Snippet_SubjMatched_New_v2 % best results
+
+parallel_check
+
+
+% get subjects
+subj_names={};
+for i=1:length(files_imag)
+    tmp=files_imag{i};
+    subj_names{i}=tmp(67:71);
+end
+
+% filters
+d1 = designfilt('bandpassiir','FilterOrder',4, ...
+    'HalfPowerFrequency1',0.1,'HalfPowerFrequency2',35, ...
+    'SampleRate',1e3);
+
+Fs=1e3;
+lpFilt = designfilt('bandpassiir','FilterOrder',4, ...
+    'HalfPowerFrequency1',0.1,'HalfPowerFrequency2',30, ...
+    'SampleRate',Fs);
+bpFilt = designfilt('bandpassiir','FilterOrder',4, ...
+    'HalfPowerFrequency1',65,'HalfPowerFrequency2',100, ...
+    'SampleRate',Fs);
+spFilt1 = designfilt('bandpassiir','FilterOrder',4, ...
+    'HalfPowerFrequency1',11,'HalfPowerFrequency2',13, ...
+    'SampleRate',Fs);
+spFilt2 = designfilt('bandpassiir','FilterOrder',4, ...
+    'HalfPowerFrequency1',13,'HalfPowerFrequency2',16, ...
+    'SampleRate',Fs);
+soFilt = designfilt('bandpassiir','FilterOrder',4, ...
+    'HalfPowerFrequency1',0.16,'HalfPowerFrequency2',1.25, ...
+    'SampleRate',Fs);
+deltaFilt = designfilt('bandpassiir','FilterOrder',4, ...
+    'HalfPowerFrequency1',0.5,'HalfPowerFrequency2',4, ...
+    'SampleRate',Fs);
+
+frontal_elec=[1:3 31:34 4:8 35:38 9:12 39:41 57:58];
+aa = ones(62,1);
+aa(frontal_elec)=0;
+posterior_elec=find(aa==1);
+output_path = '/media/user/Data/Ana EEG/STAR/Phase 2/Sleep Preprocessed';
+
+for i=1:length(subj_names)
+    STUDY = []; CURRENTSTUDY = 0; ALLEEG = []; EEG=[]; CURRENTSET=[];
+    eeglab redraw
+
+    % load the sleep data
+    subj = ['Participant ' subj_names{i}];
+    nap_file = [subj_names{i} '_SleepData.set'];
+    filepath = fullfile(root_path,subj);
+    napfile_full = fullfile(filepath,nap_file);
+    if isfolder(filepath) && i~=3 && exist(napfile_full)
+        EEG = pop_loadset('filename',nap_file,...
+            'filepath',filepath);
+        [ALLEEG, EEG, CURRENTSET] = eeg_store( ALLEEG, EEG, 0 );
+        eeglab redraw
+
+        % process sleep data
+        data = EEG.data;
+        data1 = filtfilt(d1,data')';
+        ref = data1([13 19],:); % reference to M1 and M2, channels 1 to 68
+        ref = mean(ref,1);
+        data1(1:68,:) = data1(1:68,:) - ref;
+        EEG.data = data1;
+        [ALLEEG, EEG, CURRENTSET] = eeg_store( ALLEEG, EEG, 0 );
+        eeglab redraw
+
+        EEG = pop_select( EEG, 'rmchannel',{'M1','M2','SpO2','PLETH','HRate','Stat','TRIGGERS1',...
+            'TRIGGERS2','TRIGGERS3','TRIGGERS4','TRIGGERS5','TRIGGERS6','TRIGGERS7','TRIGGERS8',...
+            'TRIGGERS9','TRIGGERS10','TRIGGERS11','TRIGGERS12','TRIGGERS13','TRIGGERS14','TRIGGERS15',...
+            'TRIGGERS16','STATUS','Counter 2power24','BIP 01','BIP 02','BIP 03','BIP 04'});% remove bad channels
+        [ALLEEG EEG CURRENTSET] = pop_newset(ALLEEG, EEG, 2,'overwrite','on','gui','off');
+        %[ALLEEG, EEG, CURRENTSET] = eeg_store( ALLEEG, EEG, 0 );
+        eeglab redraw
+
+        % removing bad channels
+        if any(contains(subj, {'24013', '24014', '24015','24018'}))
+            bad_ch = [12];
+            EEG.data(bad_ch,:)=0;
+            [ALLEEG EEG CURRENTSET] = pop_newset(ALLEEG, EEG, 2,'overwrite','on','gui','off');
+            eeglab redraw
+        end
+        if any(contains(subj, {'24038'}))
+            bad_ch = [36-2];
+            EEG.data(bad_ch,:)=0;
+            [ALLEEG EEG CURRENTSET] = pop_newset(ALLEEG, EEG, 2,'overwrite','on','gui','off');
+            eeglab redraw
+        end
+        
+        
+        % OPTIONAL INTERPOLATION OF BAD CHANNELS TAKES TOO LONG THOUGH
+        % if ~isempty(bad_ch)
+        %     EEG.data(bad_ch,:)=0;
+        %     [ALLEEG EEG CURRENTSET] = pop_newset(ALLEEG, EEG, 2,'overwrite','on','gui','off');
+        %     eeglab redraw
+        % end
+        % 
+        % if ~isempty(bad_ch)
+        %     EEG = pop_interp(EEG, [bad_ch], 'invdist'); % interploate the bad electrodes
+        %     [ALLEEG EEG CURRENTSET] = pop_newset(ALLEEG, EEG, 2,'overwrite','on','gui','off');
+        %     eeglab redraw
+        % end
+
+        data=EEG.data;
+
+        
+        % load the sleep staging
+        sleep_report_path = fullfile(filepath,'Sleep Stage Report');
+        sleep_file = [subj_names{i} '_SleepStages.xls'];
+        sleep_filename = fullfile(sleep_report_path,sleep_file);
+        if isfolder(sleep_report_path) && exist(sleep_filename)
+
+            sleep_score = import_nap_sleep_scores(sleep_filename, "Data", [2, Inf]);
+            sleep_score = sleep_score(2:end,:);
+            sleep_staging= [];
+            tidx = 1;
+            for ii=1:height(sleep_score)
+                tmp = sleep_score(ii,:).Var2;
+                sleep_staging(tidx:(tidx+30*EEG.srate-1)) = tmp;
+                tidx = size(sleep_staging,2) + 1;
+            end
+
+            % align the data
+            data = data(:,1:length(sleep_staging));
+
+            % identify NREM sleep periods (only stage 2 and 3)
+            I = zeros(size(sleep_staging));
+            I(sleep_staging==2) =1;
+            I(sleep_staging==3) =1;
+            I(end-2000:end)=0;
+
+            % detect spindles
+            grid_sp = ...
+                detect_spindles_STAR(data,I,soFilt,spFilt1,spFilt2,sleep_staging,Fs,frontal_elec,posterior_elec);
+            grid_sp.subjname = subj_names{i};
+
+            % detect SOs
+            grid_so = ...
+                SO_analyses_STAR(data,I,soFilt,spFilt1,spFilt2,sleep_staging,Fs,frontal_elec,posterior_elec);
+             grid_so.subjname = subj_names{i};
+
+             % save
+             filename = fullfile(output_path,[subj_names{i} '.mat']);
+             save(filename,'grid_sp', 'grid_so', '-v7.3');            
+            %[so_st_new, so_end_new, k] = SO_detect(temp11,sleep_st,sleep_end,II);
+        end
+    end
+end
+
+
 
 %% LINKING TOP REACTIVATION WINDOWS TO SO SPINDLE DYNAMICS
 % global SOs? DMD? More nesting probability? 
