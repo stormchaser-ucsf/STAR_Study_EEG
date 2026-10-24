@@ -181,6 +181,8 @@ for i=1:length(subj_names)
                 tidx = size(sleep_staging,2) + 1;
             end
 
+            sleep_staging(end-2000:end)=0;
+
             % align the data
             data = data(:,1:length(sleep_staging));
 
