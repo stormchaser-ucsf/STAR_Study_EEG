@@ -1,4 +1,5 @@
-function [n2,n3,vaf_task_shared,vaf_base_shared] = get_reactivation_sleep_stage_subject(data,sleep_staging,...
+function [n2,n3,vaf_task_shared,vaf_base_shared,vaf_task_shared_full,startIdx,segment_sleep_stages] = ...
+    get_reactivation_sleep_stage_subject(data,sleep_staging,...
     whichMarg_total,whichMarg_total_baseline,Wtotal,Vtotal,Wtotal_baseline,Vtotal_baseline)
 
 
@@ -84,6 +85,7 @@ parfor w = 1:nWins
 end
 
 
+vaf_task_shared_full = vaf_task_shared;
 
 
 %%%% SORTING RESULTS BY SLEEP STAGE 

@@ -186,14 +186,19 @@ for i=1:length(subj_names)
             % align the data
             data = data(:,1:length(sleep_staging));
 
-            % get the reactivation
-            [n2,n3,vaf_task_shared,vaf_base_shared] = get_reactivation_sleep_stage_subject(data,sleep_staging,...
-                whichMarg_total,whichMarg_total_baseline,Wtotal,Vtotal,Wtotal_baseline,Vtotal_baseline);
+            if sum(sleep_staging==2) > 0
 
-            % store
-            res_react =  [res_react; [nanmean([vaf_task_shared vaf_base_shared])]];
-            res_react_stage = [res_react_stage; [nanmean(n2) nanmean(n3)]];
-            subj_proc = [subj_proc  subj_names{i}];
+                % get the reactivation
+                [n2,n3,vaf_task_shared,vaf_base_shared] = get_reactivation_sleep_stage_subject(data,sleep_staging,...
+                    whichMarg_total,whichMarg_total_baseline,Wtotal,Vtotal,Wtotal_baseline,Vtotal_baseline);
+
+                % store
+                res_react =  [res_react; [nanmean([vaf_task_shared vaf_base_shared])]];
+                res_react_stage = [res_react_stage; [nanmean(n2) nanmean(n3)]];
+                subj_proc = [subj_proc  subj_names{i}];
+            else
+                subj_not_proc = [subj_not_proc  subj_names{i}];
+            end
         else
             subj_not_proc = [subj_not_proc  subj_names{i}];
         end
@@ -202,9 +207,9 @@ for i=1:length(subj_names)
     end
 end
 
-save reactivation_analyses_NREM_v2 res_react res_react_stage ...
+save reactivation_analyses_NREM_v3_ConfirmedSleep res_react res_react_stage ...
     subj_proc subj_not_proc  -v7.3
-
+%reactivation_analyses_NREM_v2 % all subjects
 
 fprintf('\nProcessed %d number of subjects\n', length(subj_proc));
 
@@ -278,7 +283,7 @@ aa(frontal_elec)=0;
 posterior_elec=find(aa==1);
 output_path = '/media/user/Data/Ana EEG/STAR/Phase 2/Sleep Preprocessed';
 
-for i=1:length(subj_names)
+for i=24:length(subj_names)
     STUDY = []; CURRENTSTUDY = 0; ALLEEG = []; EEG=[]; CURRENTSET=[];
     eeglab redraw
 
@@ -324,15 +329,15 @@ for i=1:length(subj_names)
             [ALLEEG EEG CURRENTSET] = pop_newset(ALLEEG, EEG, 2,'overwrite','on','gui','off');
             eeglab redraw
         end
-        
-        
+
+
         % OPTIONAL INTERPOLATION OF BAD CHANNELS TAKES TOO LONG THOUGH
         % if ~isempty(bad_ch)
         %     EEG.data(bad_ch,:)=0;
         %     [ALLEEG EEG CURRENTSET] = pop_newset(ALLEEG, EEG, 2,'overwrite','on','gui','off');
         %     eeglab redraw
         % end
-        % 
+        %
         % if ~isempty(bad_ch)
         %     EEG = pop_interp(EEG, [bad_ch], 'invdist'); % interploate the bad electrodes
         %     [ALLEEG EEG CURRENTSET] = pop_newset(ALLEEG, EEG, 2,'overwrite','on','gui','off');
@@ -341,11 +346,12 @@ for i=1:length(subj_names)
 
         data=EEG.data;
 
-        
+
         % load the sleep staging
         sleep_report_path = fullfile(filepath,'Sleep Stage Report');
         sleep_file = [subj_names{i} '_SleepStages.xls'];
         sleep_filename = fullfile(sleep_report_path,sleep_file);
+
         if isfolder(sleep_report_path) && exist(sleep_filename)
 
             sleep_score = import_nap_sleep_scores(sleep_filename, "Data", [2, Inf]);
@@ -361,26 +367,30 @@ for i=1:length(subj_names)
             % align the data
             data = data(:,1:length(sleep_staging));
 
-            % identify NREM sleep periods (only stage 2 and 3)
-            I = zeros(size(sleep_staging));
-            I(sleep_staging==2) =1;
-            I(sleep_staging==3) =1;
-            I(end-2000:end)=0;
+            % only if there is valid sleep
+            if sum(sleep_staging==2) > 0
 
-            % detect spindles
-            grid_sp = ...
-                detect_spindles_STAR(data,I,soFilt,spFilt1,spFilt2,sleep_staging,Fs,frontal_elec,posterior_elec);
-            grid_sp.subjname = subj_names{i};
+                % identify NREM sleep periods (only stage 2 and 3)
+                I = zeros(size(sleep_staging));
+                I(sleep_staging==2) =1;
+                I(sleep_staging==3) =1;
+                I(end-2000:end)=0;
 
-            % detect SOs
-            grid_so = ...
-                SO_analyses_STAR(data,I,soFilt,spFilt1,spFilt2,sleep_staging,Fs,frontal_elec,posterior_elec);
-             grid_so.subjname = subj_names{i};
+                % detect spindles
+                grid_sp = ...
+                    detect_spindles_STAR(data,I,soFilt,spFilt1,spFilt2,sleep_staging,Fs,frontal_elec,posterior_elec);
+                grid_sp.subjname = subj_names{i};
 
-             % save
-             filename = fullfile(output_path,[subj_names{i} '.mat']);
-             save(filename,'grid_sp', 'grid_so', '-v7.3');            
-            %[so_st_new, so_end_new, k] = SO_detect(temp11,sleep_st,sleep_end,II);
+                % detect SOs
+                grid_so = ...
+                    SO_analyses_STAR(data,I,soFilt,spFilt1,spFilt2,sleep_staging,Fs,frontal_elec,posterior_elec);
+                grid_so.subjname = subj_names{i};
+
+                % save
+                filename = fullfile(output_path,[subj_names{i} '.mat']);
+                save(filename,'grid_sp', 'grid_so', '-v7.3');
+                %[so_st_new, so_end_new, k] = SO_detect(temp11,sleep_st,sleep_end,II);
+            end
         end
     end
 end
@@ -388,7 +398,186 @@ end
 
 
 %% LINKING TOP REACTIVATION WINDOWS TO SO SPINDLE DYNAMICS
+% (MAIN MAIN)
 % global SOs? DMD? More nesting probability? 
+
+clc;clear
+close all
+eeglab
+cd('/media/user/Data/Ana EEG/STAR/Phase 2')
+root_path=pwd;
+%load Imag_Snippet_SubjMatched
+load Imag_Snippet_SubjMatched_New_v2 % best results
+%load Imag_Snippet_SubjMatched_New_v3
+
+% get subjects
+subj_names={};
+for i=1:length(files_imag)
+    tmp=files_imag{i};
+    subj_names{i}=tmp(67:71);
+end
+
+% % reactivation of subject-specific engram (not the average)
+% % loop over subjects
+% for i=1:length(subj)
+%     % get imag data
+%     snippet_data = squeeze(chdata_trauma(:,:,i) - chdata_neutral(:,:,i));
+%     imag_data = squeeze(chdata_trauma_imag(:,:,i) - chdata_neutral_imag(:,:,i));
+% end
+
+
+% reactivation of the engram derived from average data
+d1 = designfilt('bandpassiir','FilterOrder',4, ...
+    'HalfPowerFrequency1',0.1,'HalfPowerFrequency2',35, ...
+    'SampleRate',1e3);
+load dPCA_Shared_AllSubj
+load dPCA_Shared_AllSubj_baseline
+res_react=[];
+res_react_stage=[];
+subj_proc={};
+subj_not_proc={};
+sleep_folder = '/media/user/Data/Ana EEG/STAR/Phase 2/Sleep Preprocessed';
+for i=1:length(subj_names)
+    STUDY = []; CURRENTSTUDY = 0; ALLEEG = []; EEG=[]; CURRENTSET=[];
+    eeglab redraw
+
+    % load the sleep data
+    subj = ['Participant ' subj_names{i}];
+    nap_file = [subj_names{i} '_SleepData.set'];
+    filepath = fullfile(root_path,subj);
+    napfile_full = fullfile(filepath,nap_file);
+    sleep_processed_filename = fullfile(sleep_folder,[subj_names{i} '.mat']);
+    if isfolder(filepath) && i~=3 && exist(napfile_full)
+        EEG = pop_loadset('filename',nap_file,...
+            'filepath',filepath);
+        [ALLEEG, EEG, CURRENTSET] = eeg_store( ALLEEG, EEG, 0 );
+        eeglab redraw
+
+        % process sleep data
+        data = EEG.data;
+        data1 = filtfilt(d1,data')';
+        ref = data1([13 19],:); % reference to M1 and M2, channels 1 to 68
+        ref = mean(ref,1);
+        data1(1:68,:) = data1(1:68,:) - ref;
+        EEG.data = data1;
+        [ALLEEG, EEG, CURRENTSET] = eeg_store( ALLEEG, EEG, 0 );
+        eeglab redraw
+
+        EEG = pop_select( EEG, 'rmchannel',{'M1','M2','SpO2','PLETH','HRate','Stat','TRIGGERS1',...
+            'TRIGGERS2','TRIGGERS3','TRIGGERS4','TRIGGERS5','TRIGGERS6','TRIGGERS7','TRIGGERS8',...
+            'TRIGGERS9','TRIGGERS10','TRIGGERS11','TRIGGERS12','TRIGGERS13','TRIGGERS14','TRIGGERS15',...
+            'TRIGGERS16','STATUS','Counter 2power24','BIP 01','BIP 02','BIP 03','BIP 04'});% remove bad channels
+        [ALLEEG EEG CURRENTSET] = pop_newset(ALLEEG, EEG, 2,'overwrite','on','gui','off');
+        %[ALLEEG, EEG, CURRENTSET] = eeg_store( ALLEEG, EEG, 0 );
+        eeglab redraw
+
+        % removing bad channels
+        if any(contains(subj, {'24013', '24014', '24015','24018'}))
+            bad_ch = [12];
+            EEG.data(bad_ch,:)=0;
+            [ALLEEG EEG CURRENTSET] = pop_newset(ALLEEG, EEG, 2,'overwrite','on','gui','off');
+            eeglab redraw
+        end
+        if any(contains(subj, {'24038'}))
+            bad_ch = [36-2];
+            EEG.data(bad_ch,:)=0;
+            [ALLEEG EEG CURRENTSET] = pop_newset(ALLEEG, EEG, 2,'overwrite','on','gui','off');
+            eeglab redraw
+        end
+
+        data=EEG.data;
+
+
+        % load the sleep staging
+        sleep_report_path = fullfile(filepath,'Sleep Stage Report');
+        sleep_file = [subj_names{i} '_SleepStages.xls'];
+        sleep_filename = fullfile(sleep_report_path,sleep_file);
+        
+        if isfolder(sleep_report_path) && exist(sleep_filename)
+
+            sleep_score = import_nap_sleep_scores(sleep_filename, "Data", [2, Inf]);
+            sleep_score = sleep_score(2:end,:);
+            sleep_staging= [];
+            tidx = 1;
+            for ii=1:height(sleep_score)
+                tmp = sleep_score(ii,:).Var2;
+                sleep_staging(tidx:(tidx+30*EEG.srate-1)) = tmp;
+                tidx = size(sleep_staging,2) + 1;
+            end
+
+            sleep_staging(end-2000:end)=0;
+
+            % align the data
+            data = data(:,1:length(sleep_staging));
+
+            if sum(sleep_staging==3) > 0 
+
+                % get the reactivation
+                [n2,n3,vaf_task_shared,vaf_base_shared,vaf_task_shared_full,...
+                    startIdx,segment_sleep_stages] = ...
+                    get_reactivation_sleep_stage_subject(data,sleep_staging,...
+                    whichMarg_total,whichMarg_total_baseline,Wtotal,Vtotal,Wtotal_baseline,Vtotal_baseline);
+
+                % load the sleep data
+                sleep_data  = load(sleep_processed_filename);
+
+                % build the SO synchrony matrix
+                so_synchrony = ...
+                    build_so_synchrony(sleep_data.grid_so,size(data,1),size(data,2));
+                so_prob = mean(so_synchrony,1);
+
+                % get the top 10th percentile of sleep reactivation in n3
+                idx_n3 = segment_sleep_stages==3;
+                startIdx_n3 = startIdx(idx_n3);
+                tmp = vaf_task_shared_full(idx_n3);
+                tmp = sort(tmp,'ascend');
+                thresh_top = tmp(round(0.8*length(tmp)));
+                thresh_bot = tmp(round(0.2*length(tmp)));
+                idx1 = startIdx_n3(tmp>=thresh_top);
+                idx2 = startIdx_n3(tmp<=thresh_bot);
+                so_prob_top = so_prob(idx1);
+                so_prob_bot = so_prob(idx2);
+
+
+                % store
+                res_react =  [res_react; [nanmean([vaf_task_shared vaf_base_shared])]];
+                res_react_stage = [res_react_stage; [nanmean(n2) nanmean(n3)]];
+                subj_proc = [subj_proc  subj_names{i}];
+            else
+                subj_not_proc = [subj_not_proc  subj_names{i}];
+            end
+        else
+            subj_not_proc = [subj_not_proc  subj_names{i}];
+        end
+    else
+        subj_not_proc = [subj_not_proc  subj_names{i}];
+    end
+end
+
+save reactivation_analyses_NREM_v3_ConfirmedSleep res_react res_react_stage ...
+    subj_proc subj_not_proc  -v7.3
+%reactivation_analyses_NREM_v2 % all subjects
+
+fprintf('\nProcessed %d number of subjects\n', length(subj_proc));
+
+figure;boxplot(res_react)
+xticks(1:2)
+ylim([-3 1])
+xticklabels({'Engram','Baseline'})
+plot_beautify
+ylabel('VAF')
+[p,h,stats]=signrank(res_react(:,1),res_react(:,2));
+title(['Reactivation pval ' num2str(p)])
+
+figure;boxplot(res_react_stage)
+xticks(1:2)
+ylim([-1 0.8])
+xticklabels({'N2','N3'})
+plot_beautify
+ylabel('VAF')
+[p,h,stats]=signrank(res_react_stage(:,1),res_react_stage(:,2));
+title(['Reactivation pval ' num2str(p)])
+
 
 %% DETECTING IF SHARED SIGNAL IS REPLAYED IN SLEEP (MAIN)
 
