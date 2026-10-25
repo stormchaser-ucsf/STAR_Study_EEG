@@ -932,8 +932,10 @@ trainIdx =1:nSubj;
 snip_train = mean(snippet(:,:,trainIdx), 3);      % channels x time
 imag_train = mean(imag_condn(:,:,trainIdx), 3);   % channels x time
 Xtrain = nan(nChan, 2, nTime);
-Xtrain(:,1,:) = snip_train;
-Xtrain(:,2,:) = imag_train;
+%Xtrain(:,1,:) = snip_train;
+%Xtrain(:,2,:) = imag_train;
+Xtrain(:,1,:) = zscore(snip_train')';
+Xtrain(:,2,:) = zscore(imag_train')';
 if ch==1
     [Wtotal, Vtotal, whichMarg_total] = dpca(Xtrain, nComponents, ...
         'combinedParams', combinedParams);
