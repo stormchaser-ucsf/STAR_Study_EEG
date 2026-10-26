@@ -242,7 +242,8 @@ eeglab
 cd('/media/user/Data/Ana EEG/STAR/Phase 2')
 root_path=pwd;
 %load Imag_Snippet_SubjMatched
-load Imag_Snippet_SubjMatched_New_v2 % best results
+%load Imag_Snippet_SubjMatched_New_v2 % best results
+load Imag_Snippet_SubjMatched_New_v3 % 
 
 parallel_check
 
@@ -409,8 +410,8 @@ eeglab
 cd('/media/user/Data/Ana EEG/STAR/Phase 2')
 root_path=pwd;
 %load Imag_Snippet_SubjMatched
-load Imag_Snippet_SubjMatched_New_v2 % best results
-%load Imag_Snippet_SubjMatched_New_v3
+%load Imag_Snippet_SubjMatched_New_v2 % best results
+load Imag_Snippet_SubjMatched_New_v3
 
 % get subjects
 subj_names={};
@@ -512,7 +513,8 @@ for i=1:length(subj_names)
             % align the data
             data = data(:,1:length(sleep_staging));
 
-            if sum(sleep_staging==3) > 0 
+            %if sum(sleep_staging==3) > 0 
+            if sum(sleep_staging==3)/1e3/60 > 1
 
                 % get the reactivation
                 [n2,n3,vaf_task_shared,vaf_base_shared,vaf_task_shared_full,...
@@ -540,10 +542,12 @@ for i=1:length(subj_names)
                 so_prob_top = so_prob(idx1);
                 so_prob_bot = so_prob(idx2);
 
+                res_react =  [res_react; [nanmean(so_prob_bot) nanmean(so_prob_top)]];
+
 
                 % store
-                res_react =  [res_react; [nanmean([vaf_task_shared vaf_base_shared])]];
-                res_react_stage = [res_react_stage; [nanmean(n2) nanmean(n3)]];
+                %res_react =  [res_react; [nanmean([vaf_task_shared vaf_base_shared])]];
+                %res_react_stage = [res_react_stage; [nanmean(n2) nanmean(n3)]];
                 subj_proc = [subj_proc  subj_names{i}];
             else
                 subj_not_proc = [subj_not_proc  subj_names{i}];
@@ -556,7 +560,7 @@ for i=1:length(subj_names)
     end
 end
 
-save reactivation_analyses_NREM_v3_ConfirmedSleep res_react res_react_stage ...
+save reactivation_analyses_NREM_v3_ConfirmedSleep_SOSynchrony res_react  ...
     subj_proc subj_not_proc  -v7.3
 %reactivation_analyses_NREM_v2 % all subjects
 
@@ -564,21 +568,12 @@ fprintf('\nProcessed %d number of subjects\n', length(subj_proc));
 
 figure;boxplot(res_react)
 xticks(1:2)
-ylim([-3 1])
-xticklabels({'Engram','Baseline'})
+%ylim([-3 1])
+xticklabels({'Bottom percentile','Top percentile'})
 plot_beautify
-ylabel('VAF')
+ylabel('SO synchrony')
 [p,h,stats]=signrank(res_react(:,1),res_react(:,2));
-title(['Reactivation pval ' num2str(p)])
-
-figure;boxplot(res_react_stage)
-xticks(1:2)
-ylim([-1 0.8])
-xticklabels({'N2','N3'})
-plot_beautify
-ylabel('VAF')
-[p,h,stats]=signrank(res_react_stage(:,1),res_react_stage(:,2));
-title(['Reactivation pval ' num2str(p)])
+title(['Reactivation in N3, pval ' num2str(p)])
 
 
 %% DETECTING IF SHARED SIGNAL IS REPLAYED IN SLEEP (MAIN)

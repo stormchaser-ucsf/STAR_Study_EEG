@@ -7,6 +7,10 @@ so_synchrony = zeros(num_ch,len);
 
 for j=1:num_ch
     name = ['ch' num2str(j)];
+    if ~isfield(grid_so.(name), 'so_st')
+        grid_so.(name).so_st=[];
+        grid_so.(name).so_end=[];
+    end
     tmp = grid_so.(name).so_st;
     tmp1 = grid_so.(name).so_end;
     for k=1:length(tmp)
