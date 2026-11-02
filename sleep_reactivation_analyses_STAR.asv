@@ -63,7 +63,8 @@ for subj=45:53
                 pathname);
             eeglab redraw
 
-            setname = ['240' num2str(subj) '_SleepData'];
+            %setname = ['240' num2str(subj) '_SleepData'];
+            setname = ['240' num2str(subj) '_SleepData_2'];% for those datasets split into 2 parts
             setname1 = [setname '.set'];
             EEG = pop_editset(EEG, 'setname', setname);
             [ALLEEG, EEG, CURRENTSET] = eeg_store(ALLEEG, EEG, CURRENTSET);
@@ -570,10 +571,11 @@ figure;boxplot(res_react)
 xticks(1:2)
 %ylim([-3 1])
 xticklabels({'Bottom percentile','Top percentile'})
+xlabel('N3 Reactivations')
 plot_beautify
 ylabel('SO synchrony')
 [p,h,stats]=signrank(res_react(:,1),res_react(:,2));
-title(['Reactivation pval ' num2str(p)])
+title(['Reactivation in N3, pval ' num2str(p)])
 
 
 %% DETECTING IF SHARED SIGNAL IS REPLAYED IN SLEEP (MAIN)
