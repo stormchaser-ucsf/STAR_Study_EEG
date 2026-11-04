@@ -29,7 +29,7 @@ for i=1:size(data_main,1)
     I=II(i,:);
     name = ['ch' num2str(i)];
 
-    if sum(abs(data_main(i,:))) > 0
+    if sum(abs(data_main(i,:))) > 0 && sum(I)>60*5*1e3
         so_data = data_main(i,:);
         so_data = filtfilt(soFilt,so_data);
 

@@ -158,7 +158,7 @@ eeglab
 cd('/media/user/Data/Ana EEG/STAR/Phase 2')
 root_path=pwd;
 %load Imag_Snippet_SubjMatched
-load Imag_Snippet_SubjMatched_New_v2 % best results
+load Imag_Snippet_SubjMatched_New_v3.mat % best results
 
 
 % get subjects
@@ -188,6 +188,9 @@ res_react_stage=[];
 subj_proc={};
 subj_not_proc={};
 for i=1:length(subj_names)
+
+    STUDY = []; CURRENTSTUDY = 0; ALLEEG = []; EEG=[]; CURRENTSET=[];
+    eeglab redraw
 
     subj = ['Participant ' subj_names{i}];
     nap_file = [subj_names{i} '_SleepData.set'];
@@ -284,7 +287,7 @@ for i=1:length(subj_names)
 end
 
 % process the subjects with split datasets
-idx = [17 26];
+idx = [17 26]+1;
 for k=1:length(idx)
     i=idx(k);
     STUDY = []; CURRENTSTUDY = 0; ALLEEG = []; EEG=[]; CURRENTSET=[];
@@ -322,8 +325,8 @@ for k=1:length(idx)
 
 end
 
-% save reactivation_analyses_NREM_v3_ConfirmedSleep res_react res_react_stage ...
-%     subj_proc subj_not_proc  -v7.3
+save reactivation_analyses_NREM_v4_ConfirmedSleep res_react res_react_stage ...
+    subj_proc subj_not_proc  -v7.3
 %reactivation_analyses_NREM_v2 % all subjects
 
 fprintf('\nProcessed %d number of subjects\n', length(subj_proc));
@@ -355,8 +358,8 @@ eeglab
 cd('/media/user/Data/Ana EEG/STAR/Phase 2')
 root_path=pwd;
 %load Imag_Snippet_SubjMatched
-%load Imag_Snippet_SubjMatched_New_v2 % best results
-load Imag_Snippet_SubjMatched_New_v3 % 
+load Imag_Snippet_SubjMatched_New_v2 % best results
+%load Imag_Snippet_SubjMatched_New_v3 % 
 
 parallel_check
 
@@ -513,6 +516,56 @@ end
 
 
 
+% process the subjects with split datasets
+output_path = '/media/user/Data/Ana EEG/STAR/Phase 2/Sleep Preprocessed';
+idx = [17 26];
+for k=1:length(idx)
+    i=idx(k);
+    STUDY = []; CURRENTSTUDY = 0; ALLEEG = []; EEG=[]; CURRENTSET=[];
+    eeglab redraw
+
+    % load the sleep data
+    subj = ['Participant ' subj_names{i}];
+    nap_file = [subj_names{i} '_SleepData.set'];
+    filepath = fullfile(root_path,subj);
+    napfile_full = fullfile(filepath,nap_file);
+
+
+    % load sleep 1
+    nap_file = ['sleep_1.mat'];
+    nap_file = fullfile(filepath,nap_file);
+    load(nap_file)
+    nap_file = ['sleep_2.mat'];
+    nap_file = fullfile(filepath,nap_file);
+    load(nap_file)
+    data = [data_sleep1 data_sleep2];
+    sleep_staging = [staging_sleep1 staging_sleep2];
+    if sum(sleep_staging==2) > 0
+
+        % identify NREM sleep periods (only stage 2 and 3)
+        I = zeros(size(sleep_staging));
+        I(sleep_staging==2) =1;
+        I(sleep_staging==3) =1;
+        I(end-2000:end)=0;
+
+        % detect spindles
+        grid_sp = ...
+            detect_spindles_STAR(data,I,soFilt,spFilt1,spFilt2,sleep_staging,Fs,frontal_elec,posterior_elec);
+        grid_sp.subjname = subj_names{i};
+
+        % detect SOs
+        grid_so = ...
+            SO_analyses_STAR(data,I,soFilt,spFilt1,spFilt2,sleep_staging,Fs,frontal_elec,posterior_elec);
+        grid_so.subjname = subj_names{i};
+
+        % save
+        filename = fullfile(output_path,[subj_names{i} '.mat']);
+        save(filename,'grid_sp', 'grid_so', '-v7.3');
+    end
+end
+
+
+
 %% LINKING TOP REACTIVATION WINDOWS TO SO SPINDLE DYNAMICS
 % (MAIN MAIN)
 % global SOs? DMD? More nesting probability? 
@@ -562,8 +615,9 @@ for i=1:length(subj_names)
     nap_file = [subj_names{i} '_SleepData.set'];
     filepath = fullfile(root_path,subj);
     napfile_full = fullfile(filepath,nap_file);
-    sleep_processed_filename = fullfile(sleep_folder,[subj_names{i} '.mat']);
-    if isfolder(filepath) && i~=3 && exist(napfile_full)
+    sleep_processed_filename = fullfile(sleep_folder,[subj_names{i} '.mat']);  
+    if isfolder(filepath) && i~=3 && exist(napfile_full) ...
+            && ~length(regexp(subj,'24044'))>0 && ~length(regexp(subj,'24028'))>0
         EEG = pop_loadset('filename',nap_file,...
             'filepath',filepath);
         [ALLEEG, EEG, CURRENTSET] = eeg_store( ALLEEG, EEG, 0 );
@@ -673,7 +727,68 @@ for i=1:length(subj_names)
     end
 end
 
-save reactivation_analyses_NREM_v3_ConfirmedSleep_SOSynchrony res_react  ...
+size(res_react)
+
+% process the subjects with split datasets
+idx = [17 26]+1;
+for k=1:length(idx)
+    i=idx(k);
+    STUDY = []; CURRENTSTUDY = 0; ALLEEG = []; EEG=[]; CURRENTSET=[];
+    eeglab redraw
+
+    % load the sleep data
+    subj = ['Participant ' subj_names{i}];
+    nap_file = [subj_names{i} '_SleepData.set'];
+    filepath = fullfile(root_path,subj);
+    napfile_full = fullfile(filepath,nap_file);
+
+
+    % load sleep 1
+    nap_file = ['sleep_1.mat'];
+    nap_file = fullfile(filepath,nap_file);
+    load(nap_file)
+    nap_file = ['sleep_2.mat'];
+    nap_file = fullfile(filepath,nap_file);
+    load(nap_file)
+    data = [data_sleep1 data_sleep2];
+    sleep_staging = [staging_sleep1 staging_sleep2];
+    if  sum(sleep_staging==3)/1e3/60 > 1
+
+        % get the reactivation
+        [n2,n3,vaf_task_shared,vaf_base_shared,vaf_task_shared_full,...
+            startIdx,segment_sleep_stages] = ...
+            get_reactivation_sleep_stage_subject(data,sleep_staging,...
+            whichMarg_total,whichMarg_total_baseline,Wtotal,Vtotal,Wtotal_baseline,Vtotal_baseline);
+
+        % load the sleep data
+        sleep_data  = load(sleep_processed_filename);
+
+        % build the SO synchrony matrix
+        so_synchrony = ...
+            build_so_synchrony(sleep_data.grid_so,size(data,1),size(data,2));
+        so_prob = mean(so_synchrony,1);
+
+        % get the top 10th percentile of sleep reactivation in n3
+        idx_n3 = segment_sleep_stages==3;
+        startIdx_n3 = startIdx(idx_n3);
+        tmp = vaf_task_shared_full(idx_n3);
+        tmp = sort(tmp,'ascend');
+        thresh_top = tmp(round(0.8*length(tmp)));
+        thresh_bot = tmp(round(0.2*length(tmp)));
+        idx1 = startIdx_n3(tmp>=thresh_top);
+        idx2 = startIdx_n3(tmp<=thresh_bot);
+        so_prob_top = so_prob(idx1);
+        so_prob_bot = so_prob(idx2);
+
+        res_react =  [res_react; [nanmean(so_prob_bot) nanmean(so_prob_top)]];
+
+        subj_proc = [subj_proc  subj_names{i}];
+    end
+end
+
+size(res_react)
+
+save reactivation_analyses_NREM_v4_ConfirmedSleep_SOSynchrony res_react  ...
     subj_proc subj_not_proc  -v7.3
 %reactivation_analyses_NREM_v2 % all subjects
 
