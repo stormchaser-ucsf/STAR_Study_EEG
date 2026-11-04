@@ -4,10 +4,17 @@
 % 24032,34,36,38,39 -> error
 % 41,43,44,45 
 %41-> error
+% 40,42 -> no sleep
 %43-> no data
 %45-error
+% 13 error no sleep
 % 15,44 salvageable
 % maybe 28 also
+
+% 13 -> no sleep
+% 40,42 -> no sleep
+% 45 -> error
+% 48 - no sleep
 
 %%
 

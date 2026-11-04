@@ -1,5 +1,11 @@
 % SLEEP REACTIVATION (MAIN) LOOPING OVER SUBJECTS
 
+% missed subjects:
+% 13 -> no sleep
+% 40,42 -> no sleep
+% 45 -> error
+% 48 - no sleep
+
 %% INIT
 clc;clear
 close all
@@ -64,7 +70,7 @@ for subj=45:53
             eeglab redraw
 
             %setname = ['240' num2str(subj) '_SleepData'];
-            setname = ['240' num2str(subj) '_SleepData_2'];% for those datasets split into 2 parts
+            setname = ['240' num2str(subj) '_SleepData_2'];% for those sleep datasets split into 2 parts
             setname1 = [setname '.set'];
             EEG = pop_editset(EEG, 'setname', setname);
             [ALLEEG, EEG, CURRENTSET] = eeg_store(ALLEEG, EEG, CURRENTSET);
@@ -78,6 +84,71 @@ for subj=45:53
         end
     end
 end
+
+%% COMBINING DUAL SUBJECTS INTO ONE SLEEP DATASET
+
+
+filepath ='/media/user/Data/Ana EEG/STAR/Phase 2/Participant 24028/';
+d1 = designfilt('bandpassiir','FilterOrder',4, ...
+    'HalfPowerFrequency1',0.1,'HalfPowerFrequency2',35, ...
+    'SampleRate',1e3);
+cd(filepath)
+% load the sleep data
+for i=1:2
+    STUDY = []; CURRENTSTUDY = 0; ALLEEG = []; EEG=[]; CURRENTSET=[];
+    eeglab redraw
+    nap_file = [num2str(24028) '_SleepData_' num2str(i) '.set'];
+    napfile_full = fullfile(filepath,nap_file);
+    EEG = pop_loadset('filename',nap_file,...
+        'filepath',filepath);
+    [ALLEEG, EEG, CURRENTSET] = eeg_store( ALLEEG, EEG, 0 );
+    eeglab redraw
+
+
+    % process sleep data
+    data = EEG.data;
+    data1 = filtfilt(d1,data')';
+    ref = data1([13 19],:); % reference to M1 and M2, channels 1 to 68
+    ref = mean(ref,1);
+    data1(1:68,:) = data1(1:68,:) - ref;
+    EEG.data = data1;
+    [ALLEEG, EEG, CURRENTSET] = eeg_store( ALLEEG, EEG, 0 );
+    eeglab redraw
+
+    EEG = pop_select( EEG, 'rmchannel',{'M1','M2','SpO2','PLETH','HRate','Stat','TRIGGERS1',...
+        'TRIGGERS2','TRIGGERS3','TRIGGERS4','TRIGGERS5','TRIGGERS6','TRIGGERS7','TRIGGERS8',...
+        'TRIGGERS9','TRIGGERS10','TRIGGERS11','TRIGGERS12','TRIGGERS13','TRIGGERS14','TRIGGERS15',...
+        'TRIGGERS16','STATUS','Counter 2power24','BIP 01','BIP 02','BIP 03','BIP 04'});% remove bad channels
+    [ALLEEG EEG CURRENTSET] = pop_newset(ALLEEG, EEG, 2,'overwrite','on','gui','off');
+    %[ALLEEG, EEG, CURRENTSET] = eeg_store( ALLEEG, EEG, 0 );
+    eeglab redraw
+    data=EEG.data;
+
+    % load the sleep staging
+    sleep_report_path = fullfile(filepath,'Sleep Stage Report');
+    sleep_file = [num2str(24028) '_Part' num2str(i) '_SleepStages.xls'];
+    sleep_filename = fullfile(sleep_report_path,sleep_file);
+
+    sleep_score = import_nap_sleep_scores(sleep_filename, "Data", [2, Inf]);
+    sleep_score = sleep_score(2:end,:);
+    sleep_staging= [];
+    tidx = 1;
+    for ii=1:height(sleep_score)
+        tmp = sleep_score(ii,:).Var2;
+        sleep_staging(tidx:(tidx+30*EEG.srate-1)) = tmp;
+        tidx = size(sleep_staging,2) + 1;
+    end
+
+    sleep_staging(end-2000:end)=0;
+
+    % align the data
+    data = data(:,1:length(sleep_staging));
+
+    data_sleep2 = data;
+    staging_sleep2 = sleep_staging;
+    save sleep_2 data_sleep2 staging_sleep2 -v7.3
+end
+
 
 %% REACTIVATION SUBJECT SPECIFIC ENGRAM AND AVERAGE ENGRAM (MAIN MAIN)
 
@@ -117,15 +188,15 @@ res_react_stage=[];
 subj_proc={};
 subj_not_proc={};
 for i=1:length(subj_names)
-    STUDY = []; CURRENTSTUDY = 0; ALLEEG = []; EEG=[]; CURRENTSET=[];
-    eeglab redraw
 
-    % load the sleep data
     subj = ['Participant ' subj_names{i}];
     nap_file = [subj_names{i} '_SleepData.set'];
     filepath = fullfile(root_path,subj);
     napfile_full = fullfile(filepath,nap_file);
-    if isfolder(filepath) && i~=3 && exist(napfile_full)
+
+    
+    if isfolder(filepath) && i~=3 && exist(napfile_full) ...
+            && ~length(regexp(subj,'24044'))>0 && ~length(regexp(subj,'24028'))>0
         EEG = pop_loadset('filename',nap_file,...
             'filepath',filepath);
         [ALLEEG, EEG, CURRENTSET] = eeg_store( ALLEEG, EEG, 0 );
@@ -206,12 +277,53 @@ for i=1:length(subj_names)
             subj_not_proc = [subj_not_proc  subj_names{i}];
         end
     else
-        subj_not_proc = [subj_not_proc  subj_names{i}];
+        if length(regexp(subj,'24044'))>0 || length(regexp(subj,'24028'))>0
+            subj_not_proc = [subj_not_proc  subj_names{i}];
+        end
     end
 end
 
-save reactivation_analyses_NREM_v3_ConfirmedSleep res_react res_react_stage ...
-    subj_proc subj_not_proc  -v7.3
+% process the subjects with split datasets
+idx = [17 26];
+for k=1:length(idx)
+    i=idx(k);
+    STUDY = []; CURRENTSTUDY = 0; ALLEEG = []; EEG=[]; CURRENTSET=[];
+    eeglab redraw
+
+    % load the sleep data
+    subj = ['Participant ' subj_names{i}];
+    nap_file = [subj_names{i} '_SleepData.set'];
+    filepath = fullfile(root_path,subj);
+    napfile_full = fullfile(filepath,nap_file);
+
+
+    % load sleep 1
+    nap_file = ['sleep_1.mat'];
+    nap_file = fullfile(filepath,nap_file);
+    load(nap_file)
+    nap_file = ['sleep_2.mat'];
+    nap_file = fullfile(filepath,nap_file);
+    load(nap_file)
+    data = [data_sleep1 data_sleep2];
+    sleep_staging = [staging_sleep1 staging_sleep2];
+    if sum(sleep_staging==2) > 0
+
+        % get the reactivation
+        [n2,n3,vaf_task_shared,vaf_base_shared,...
+            vaf_task_shared_full,startIdx,segment_sleep_stages] = ...
+            get_reactivation_sleep_stage_subject(data,sleep_staging,...
+            whichMarg_total,whichMarg_total_baseline,Wtotal,Vtotal,Wtotal_baseline,Vtotal_baseline);
+
+        % store
+        res_react =  [res_react; [nanmean([vaf_task_shared vaf_base_shared])]];
+        res_react_stage = [res_react_stage; [nanmean(n2) nanmean(n3)]];
+        subj_proc = [subj_proc  subj_names{i}];
+    end
+
+end
+
+% save reactivation_analyses_NREM_v3_ConfirmedSleep res_react res_react_stage ...
+%     subj_proc subj_not_proc  -v7.3
 %reactivation_analyses_NREM_v2 % all subjects
 
 fprintf('\nProcessed %d number of subjects\n', length(subj_proc));

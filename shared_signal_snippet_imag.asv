@@ -1,8 +1,19 @@
 %% missing subjects
 % 24015 24032 24034 24036 24038 24039 24041 24043 44 45 
 % 24015 -> just called pt3
-% 24032 -> error
+% 24032,34,36,38,39 -> error
 % 41,43,44,45 
+%41-> error
+% 40,42 -> no sleep
+%43-> no data
+%45-error
+% 13 error no sleep
+% 15,44 salvageable
+% maybe 28 also
+
+% 13 -> no sleep
+% 40,42 -> no sleep
+% 44 
 
 %%
 
@@ -255,11 +266,13 @@ for i=1:length(files)
 end
 
 cd('/media/user/Data/Ana EEG/STAR/Phase 2')
-save Imag_Snippet_SubjMatched_New_v2 chdata_neutral chdata_trauma chdata_trauma_imag ...
+save Imag_Snippet_SubjMatched_New_v3 chdata_neutral chdata_trauma chdata_trauma_imag ...
     chdata_neutral_imag files_snippet files_imag -v7.3
 
-
+%Imag_Snippet_SubjMatched_New_v2 gives best results, doesnt have 24015
 %% INTRINSIC MANIFOLD SHARED
+
+parallel_check
 
 Fs=1e3;
 bpFilt = designfilt('lowpassiir', 'FilterOrder', 4, ...
@@ -489,13 +502,14 @@ ylabel('Cross-validated VAF')
 %% Q4: comparison with baseline manifold structure?
 %(MAIN MAIN)
 % based on increasing dimensionality 
+parallel_check
 angles_baseline=[];
 % idx_snippet_baseline = [1:1e3  6e3:7e3];
 % idx_imag_baseline = [1:1e3  13e3:14e3];
 idx_snippet_baseline = [100:0.9e3 ];%100:1e3 old
 idx_imag_baseline = [100:0.9e3 ];
 pcap_baseline=[];
-dim=11;
+dim=15;
 pcap_sweep_boot=[];
 parfor i=1:1000
     idx = randi(size(chdata_neutral,3),size(chdata_neutral,3),1);
@@ -876,7 +890,7 @@ b = chdata_trauma_imag - chdata_neutral_imag;
 
 
 % experimental / control
-ch=1;
+ch=2;
 if ch==1 % experimental    
     idx_snippet = 2e3:5e3;
     idx_imag = 8.5e3:11.5e3;
@@ -924,8 +938,10 @@ trainIdx =1:nSubj;
 snip_train = mean(snippet(:,:,trainIdx), 3);      % channels x time
 imag_train = mean(imag_condn(:,:,trainIdx), 3);   % channels x time
 Xtrain = nan(nChan, 2, nTime);
-Xtrain(:,1,:) = snip_train;
-Xtrain(:,2,:) = imag_train;
+%Xtrain(:,1,:) = snip_train;
+%Xtrain(:,2,:) = imag_train;
+Xtrain(:,1,:) = zscore(snip_train')';
+Xtrain(:,2,:) = zscore(imag_train')';
 if ch==1
     [Wtotal, Vtotal, whichMarg_total] = dpca(Xtrain, nComponents, ...
         'combinedParams', combinedParams);
@@ -1105,7 +1121,7 @@ set(gca, 'FontSize', 12, 'Box', 'off');
 title('Cross-validated dPCA VAF');
 ylim([-.5 .75])
 plot_beautify
-
+hline(0,'--r')
 
 
 [p_condn,~,stats_condn] = signrank(vaf_task(:,1), vaf_base(:,1));p_condn
